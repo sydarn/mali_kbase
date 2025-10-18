@@ -322,7 +322,12 @@ int kbase_backend_timer_init(struct kbase_device *kbdev)
 {
 	struct kbase_backend_data *backend = &kbdev->hwaccess.backend;
 
+#if KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE
+    hrtimer_setup(&backend->scheduling_timer, timer_callback, CLOCK_MONOTONIC,
+              HRTIMER_MODE_REL);
+#else
 	hrtimer_init(&backend->scheduling_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+#endif
 	backend->scheduling_timer.function = timer_callback;
 	backend->timer_running = false;
 

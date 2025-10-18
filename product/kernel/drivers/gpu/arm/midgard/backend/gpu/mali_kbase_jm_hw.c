@@ -1260,10 +1260,13 @@ int kbase_reset_gpu_init(struct kbase_device *kbdev)
 		return -ENOMEM;
 
 	INIT_WORK(&kbdev->hwaccess.backend.reset_work, kbasep_reset_timeout_worker);
-
+#if KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE
+    hrtimer_setup(&kbdev->hwaccess.backend.reset_timer, kbasep_reset_timer_callback,
+            CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+#else
 	hrtimer_init(&kbdev->hwaccess.backend.reset_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	kbdev->hwaccess.backend.reset_timer.function = kbasep_reset_timer_callback;
-
+#endif
 	return 0;
 }
 
