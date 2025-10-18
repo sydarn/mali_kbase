@@ -4574,7 +4574,11 @@ static void kbase_mmu_mark_non_movable(struct kbase_device *const kbdev, struct 
 	if (IS_PAGE_MOVABLE(page_md->status))
 		page_md->status = PAGE_MOVABLE_CLEAR(page_md->status);
 
+#if (KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE)
+    set_page_private(page, 0);
+#else
 	__ClearPageMovable(page);
+#endif
 	spin_unlock(&page_md->migrate_lock);
 	unlock_page(page);
 }

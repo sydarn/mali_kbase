@@ -81,7 +81,10 @@ bool kbase_alloc_page_metadata(struct kbase_device *kbdev, struct page *p, dma_a
 	sema_init(&page_md->cpu_map_lock, 1);
 
 	lock_page(p);
-#if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
+#if (KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE)
+	SetPageMovableOps(p);
+	page_md->status = PAGE_MOVABLE_SET(page_md->status);
+#elif (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
 	__SetPageMovable(p, &movable_ops);
 	page_md->status = PAGE_MOVABLE_SET(page_md->status);
 #else
@@ -157,7 +160,11 @@ static void kbase_free_pages_worker(struct work_struct *work)
 		lock_page(p);
 		page_md = kbase_page_private(p);
 		if (page_md && IS_PAGE_MOVABLE(page_md->status)) {
+#if (KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE)
+			set_page_private(p, 0);
+#else
 			__ClearPageMovable(p);
+#endif
 			page_md->status = PAGE_MOVABLE_CLEAR(page_md->status);
 		}
 		kbase_free_page_metadata(kbdev, p, &group_id);
@@ -231,11 +238,20 @@ static int kbasep_migrate_page_pt_mapped(struct page *old_page, struct page *new
 
 	if (ret == 0) {
 		dma_unmap_page(kbdev->dev, old_dma_addr, PAGE_SIZE, DMA_BIDIRECTIONAL);
+#if (KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE)
+		set_page_private(old_page, 0);
+#else
 		__ClearPageMovable(old_page);
+#endif
 		ClearPagePrivate(old_page);
 		put_page(old_page);
 
-#if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
+#if (KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE)
+		SetPageMovableOps(new_page);
+		spin_lock(&page_md->migrate_lock);
+		page_md->status = PAGE_MOVABLE_SET(page_md->status);
+		spin_unlock(&page_md->migrate_lock);
+#elif (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
 		__SetPageMovable(new_page, &movable_ops);
 		spin_lock(&page_md->migrate_lock);
 		page_md->status = PAGE_MOVABLE_SET(page_md->status);
@@ -344,11 +360,20 @@ static int kbasep_migrate_page_allocated_mapped(struct page *old_page, struct pa
 
 		/* Clear PG_movable from the old page and release reference. */
 		ClearPagePrivate(old_page);
+#if (KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE)
+        set_page_private(old_page, 0);
+#else
 		__ClearPageMovable(old_page);
+#endif
 		put_page(old_page);
 
 		/* Set PG_movable to the new page. */
-#if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
+#if (KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE)
+		SetPageMovableOps(new_page);
+		spin_lock(&page_md->migrate_lock);
+		page_md->status = PAGE_MOVABLE_SET(page_md->status);
+		spin_unlock(&page_md->migrate_lock);
+#elif (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
 		__SetPageMovable(new_page, &movable_ops);
 		spin_lock(&page_md->migrate_lock);
 		page_md->status = PAGE_MOVABLE_SET(page_md->status);
@@ -439,7 +464,11 @@ static bool kbase_page_isolate(struct page *p, isolate_mode_t mode)
 		break;
 	case NOT_MOVABLE:
 		/* Opportunistically clear the movable property for these pages */
+#if (KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE)
+		set_page_private(p, 0);
+#else
 		__ClearPageMovable(p);
+#endif
 		page_md->status = PAGE_MOVABLE_CLEAR(page_md->status);
 		break;
 	default:
@@ -561,7 +590,11 @@ static int kbase_page_migrate(struct page *new_page, struct page *old_page, enum
 		struct kbase_mem_migrate *mem_migrate = &kbdev->mem_migrate;
 
 		kbase_free_page_metadata(kbdev, old_page, NULL);
+#if (KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE)
+		set_page_private(old_page, 0);
+#else
 		__ClearPageMovable(old_page);
+#endif
 		put_page(old_page);
 
 		/* Just free new page to avoid lock contention. */
@@ -584,7 +617,11 @@ static int kbase_page_migrate(struct page *new_page, struct page *old_page, enum
 	 * expect.
 	 */
 	if (err < 0 && err != -EAGAIN) {
+#if (KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE)
+		set_page_private(old_page, 0);
+#else
 		__ClearPageMovable(old_page);
+#endif
 		page_md->status = PAGE_MOVABLE_CLEAR(page_md->status);
 	}
 
@@ -660,7 +697,11 @@ static void kbase_page_putback(struct page *p)
 	 */
 	if (status_mem_pool || status_free_isolated_in_progress ||
 	    status_free_pt_isolated_in_progress) {
+#if (KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE)
+		set_page_private(p, 0);
+#else
 		__ClearPageMovable(p);
+#endif
 		page_md->status = PAGE_MOVABLE_CLEAR(page_md->status);
 		if (!WARN_ON_ONCE(!kbdev)) {
 			struct kbase_mem_migrate *mem_migrate = &kbdev->mem_migrate;
