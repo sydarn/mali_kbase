@@ -1390,7 +1390,11 @@ static void kbase_csf_fence_wait_callback(struct dma_fence *fence, struct dma_fe
 
 #ifdef CONFIG_MALI_FENCE_DEBUG
 	/* Fence gets signaled. Deactivate the timer for fence-wait timeout */
+#if (KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE)
+    timer_delete(&kcpu_queue->fence_timeout);
+#else
 	del_timer(&kcpu_queue->fence_timeout);
+#endif
 #endif
 
 	KBASE_KTRACE_ADD_CSF_KCPU(kctx->kbdev, KCPU_FENCE_WAIT_END, kcpu_queue, fence->context,
@@ -1418,7 +1422,11 @@ static void kbasep_kcpu_fence_wait_cancel(struct kbase_kcpu_command_queue *kcpu_
 		 * the timer would already have been deactivated inside
 		 * kbase_csf_fence_wait_callback().
 		 */
+#if (KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE)
+        timer_delete_sync(&kcpu_queue->fence_timeout);
+#else
 		del_timer_sync(&kcpu_queue->fence_timeout);
+#endif
 #endif
 		if (removed)
 			KBASE_KTRACE_ADD_CSF_KCPU(kctx->kbdev, KCPU_FENCE_WAIT_END, kcpu_queue,
@@ -1720,11 +1728,19 @@ static void kcpu_force_signal_fence(struct kbase_kcpu_command_queue *kcpu_queue)
 	 */
 	atomic_set(&kcpu_queue->fence_signal_pending_cnt, 0);
 #ifdef CONFIG_MALI_FENCE_DEBUG
+#if (KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE)
+    timer_delete_sync(&kcpu_queue->fence_signal_timeout);
+#else
 	del = del_timer_sync(&kcpu_queue->fence_signal_timeout);
+#endif
 	dev_info(kctx->kbdev->dev, "kbase KCPU [%pK] delete fence signal timeout timer ret: %d",
 		 kcpu_queue, del);
 #else
+#if (KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE)
+    timer_delete_sync(&kcpu_queue->fence_signal_timeout);
+#else
 	del_timer_sync(&kcpu_queue->fence_signal_timeout);
+#endif
 #endif
 }
 
@@ -1799,13 +1815,21 @@ static int kbasep_kcpu_fence_signal_process(struct kbase_kcpu_command_queue *kcp
 #endif
 	} else {
 #ifdef CONFIG_MALI_FENCE_DEBUG
+#if (KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE)
+        int del = timer_delete_sync(&kcpu_queue->fence_signal_timeout);
+#else
 		int del = del_timer_sync(&kcpu_queue->fence_signal_timeout);
+#endif
 
 		dev_dbg(kctx->kbdev->dev, "kbase KCPU delete fence signal timeout timer ret: %d",
 			del);
 		CSTD_UNUSED(del);
 #else
+#if (KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE)
+        timer_delete_sync(&kcpu_queue->fence_signal_timeout);
+#else
 		del_timer_sync(&kcpu_queue->fence_signal_timeout);
+#endif
 #endif
 	}
 
@@ -2901,7 +2925,11 @@ int kbase_csf_kcpu_queue_halt_timers(struct kbase_device *kbdev)
 			mutex_lock(&kcpu_queue->lock);
 
 			if (atomic_read(&kcpu_queue->fence_signal_pending_cnt)) {
+#if (KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE)
+                int ret = timer_delete_sync(&kcpu_queue->fence_signal_timeout);
+#else
 				int ret = del_timer_sync(&kcpu_queue->fence_signal_timeout);
+#endif
 
 				dev_dbg(kbdev->dev,
 					"Fence signal timeout on KCPU queue(%lu), kctx (%d_%d) was %s on suspend",
@@ -2911,7 +2939,11 @@ int kbase_csf_kcpu_queue_halt_timers(struct kbase_device *kbdev)
 
 #ifdef CONFIG_MALI_FENCE_DEBUG
 			if (kcpu_queue->fence_wait_processed) {
+#if (KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE)
+                int ret = timer_delete_sync(&kcpu_queue->fence_timeout);
+#else
 				int ret = del_timer_sync(&kcpu_queue->fence_timeout);
+#endif
 
 				dev_dbg(kbdev->dev,
 					"Fence wait timeout on KCPU queue(%lu), kctx (%d_%d) was %s on suspend",

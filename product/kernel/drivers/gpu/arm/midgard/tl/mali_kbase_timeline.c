@@ -273,7 +273,11 @@ void kbase_timeline_release(struct kbase_timeline *timeline)
 
 	/* Stop autoflush timer before releasing access to streams. */
 	atomic_set(&timeline->autoflush_timer_active, 0);
+#if KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE
+    timer_delete_sync(&timeline->autoflush_timer);
+#else
 	del_timer_sync(&timeline->autoflush_timer);
+#endif
 
 	atomic_set(timeline->timeline_flags, 0);
 }
