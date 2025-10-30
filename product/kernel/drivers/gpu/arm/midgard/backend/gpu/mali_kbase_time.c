@@ -174,7 +174,7 @@ KBASE_EXPORT_TEST_API(kbase_backend_get_gpu_time_norequest);
  */
 static bool timedwait_cycle_count_active(struct kbase_device *kbdev)
 {
-#if IS_ENABLED(CONFIG_MALI_NO_MALI)
+#if IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)
 	return true;
 #else
 	bool success = false;

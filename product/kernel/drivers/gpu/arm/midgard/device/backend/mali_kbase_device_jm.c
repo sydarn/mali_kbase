@@ -69,7 +69,7 @@ static int kbase_backend_late_init(struct kbase_device *kbdev)
 	if (err)
 		goto fail_timer;
 
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG
 #if IS_ENABLED(CONFIG_MALI_REAL_HW)
 	if (kbase_validate_interrupts(kbdev) != 0) {
 		dev_err(kbdev->dev, "Interrupt validation failed.\n");
@@ -77,7 +77,7 @@ static int kbase_backend_late_init(struct kbase_device *kbdev)
 		goto fail_interrupt_test;
 	}
 #endif /* IS_ENABLED(CONFIG_MALI_REAL_HW) */
-#endif /* CONFIG_MALI_DEBUG */
+#endif /* CONFIG_MALI_BIFROST_DEBUG */
 
 	err = kbase_job_slot_init(kbdev);
 	if (err)
@@ -114,11 +114,11 @@ fail_devfreq_init:
 	kbase_job_slot_term(kbdev);
 fail_job_slot:
 
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG
 #if IS_ENABLED(CONFIG_MALI_REAL_HW)
 fail_interrupt_test:
 #endif /* IS_ENABLED(CONFIG_MALI_REAL_HW) */
-#endif /* CONFIG_MALI_DEBUG */
+#endif /* CONFIG_MALI_BIFROST_DEBUG */
 
 	kbase_backend_timer_term(kbdev);
 fail_timer:

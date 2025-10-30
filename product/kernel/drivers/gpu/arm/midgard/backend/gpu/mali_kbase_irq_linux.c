@@ -188,7 +188,7 @@ irq_handler_t kbase_get_interrupt_handler(struct kbase_device *kbdev, u32 irq_ta
 }
 
 #if IS_ENABLED(CONFIG_MALI_REAL_HW)
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG
 int kbase_set_custom_irq_handler(struct kbase_device *kbdev, irq_handler_t custom_handler,
 				 u32 irq_tag)
 {
@@ -438,7 +438,7 @@ out:
 	return err;
 }
 #endif /* CONFIG_MALI_REAL_HW */
-#endif /* CONFIG_MALI_DEBUG */
+#endif /* CONFIG_MALI_BIFROST_DEBUG */
 
 int kbase_install_interrupts(struct kbase_device *kbdev)
 {

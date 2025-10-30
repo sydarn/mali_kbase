@@ -319,9 +319,9 @@ struct kbasep_js_device_data {
 
 	struct list_head suspended_soft_jobs_list;
 
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG
 	bool softstop_always;
-#endif /* CONFIG_MALI_DEBUG */
+#endif /* CONFIG_MALI_BIFROST_DEBUG */
 	int init_status;
 	u32 nr_contexts_pullable;
 	atomic_t nr_contexts_runnable;

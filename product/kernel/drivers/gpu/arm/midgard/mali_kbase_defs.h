@@ -52,13 +52,18 @@
 #include <linux/version_compat_defs.h>
 
 
-#ifdef CONFIG_MALI_DEVFREQ
+#ifdef CONFIG_MALI_BIFROST_DEVFREQ
 #include <linux/devfreq.h>
-#endif /* CONFIG_MALI_DEVFREQ */
+#endif /* CONFIG_MALI_BIFROST_DEVFREQ */
+
+#if IS_ENABLED(CONFIG_DEVFREQ_THERMAL)
+#include <linux/devfreq_cooling.h>
+#endif
 
 #include <arbiter/mali_kbase_arbiter_defs.h>
 
 #include <linux/memory_group_manager.h>
+#include <soc/rockchip/rockchip_opp_select.h>
 
 #include <linux/atomic.h>
 #include <linux/mempool.h>
@@ -135,8 +140,10 @@
  * the device node.
  * This is dependent on support for of_property_read_u64_array() in the
  * kernel.
+ * While, the number of clocks could be more than regulators,
+ * as mentioned in power_control_init().
  */
-#define BASE_MAX_NR_CLOCKS_REGULATORS (2)
+#define BASE_MAX_NR_CLOCKS_REGULATORS (4)
 
 /* Forward declarations */
 struct kbase_context;
@@ -681,6 +688,7 @@ struct kbase_devfreq_queue_info {
 /**
  * struct kbase_process - Representing an object of a kbase process instantiated
  *                        when the first kbase context is created under it.
+ * @kobj:               Kernel object for sysfs representation of the process.
  * @tgid:               Thread group ID.
  * @total_gpu_pages:    Total gpu pages allocated across all the contexts
  *                      of this process, it accounts for both native allocations
@@ -696,6 +704,7 @@ struct kbase_devfreq_queue_info {
  *                      imported multiple times for the process.
  */
 struct kbase_process {
+	struct kobject kobj;
 	pid_t tgid;
 	size_t total_gpu_pages;
 	struct list_head kctx_list;
@@ -770,6 +779,7 @@ struct kbase_mem_migrate {
  * @nr_irqs:               The number of interrupt entries.
  * @clocks:                Pointer to the input clock resources referenced by
  *                         the GPU device node.
+ * @scmi_clk:              Pointer to the input scmi clock resources
  * @nr_clocks:             Number of clocks set in the clocks array.
  * @regulators:            Pointer to the structs corresponding to the
  *                         regulators referenced by the GPU device node.
@@ -1099,13 +1109,9 @@ struct kbase_device {
 #if IS_ENABLED(CONFIG_REGULATOR)
 	struct regulator *regulators[BASE_MAX_NR_CLOCKS_REGULATORS];
 	unsigned int nr_regulators;
-#if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
-	int token;
-#elif (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
-	struct opp_table *opp_table;
-#endif /* (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE) */
 #endif /* CONFIG_REGULATOR */
 	char devname[DEVNAME_SIZE];
+	struct kobject *kprcs_kobj;
 	u32 id;
 
 #if !IS_ENABLED(CONFIG_MALI_REAL_HW)
@@ -1201,19 +1207,24 @@ struct kbase_device {
 	struct list_head kctx_list;
 	struct mutex kctx_list_lock;
 
-#ifdef CONFIG_MALI_DEVFREQ
+	struct rockchip_opp_info opp_info;
+	bool is_runtime_resumed;
+	unsigned long current_nominal_freq;
+	struct monitor_dev_info *mdev_info;
+#ifdef CONFIG_MALI_BIFROST_DEVFREQ
 	struct devfreq_dev_profile devfreq_profile;
 	struct devfreq *devfreq;
 	unsigned long current_freqs[BASE_MAX_NR_CLOCKS_REGULATORS];
-	unsigned long current_nominal_freq;
 	unsigned long current_voltages[BASE_MAX_NR_CLOCKS_REGULATORS];
 	u64 current_core_mask;
 	struct kbase_devfreq_opp *devfreq_table;
 	unsigned int num_opps;
 	struct kbasep_pm_metrics last_devfreq_metrics;
+	struct ipa_power_model_data *model_data;
 	struct kbase_devfreq_queue_info devfreq_queue;
 
 #if IS_ENABLED(CONFIG_DEVFREQ_THERMAL)
+	struct devfreq_cooling_power dfc_power;
 	struct thermal_cooling_device *devfreq_cooling;
 	bool ipa_protection_mode_switched;
 	struct {
@@ -1236,7 +1247,7 @@ struct kbase_device {
 		ktime_t last_sample_time;
 	} ipa;
 #endif /* CONFIG_DEVFREQ_THERMAL */
-#endif /* CONFIG_MALI_DEVFREQ */
+#endif /* CONFIG_MALI_BIFROST_DEVFREQ */
 	unsigned long previous_frequency;
 
 #if !MALI_USE_CSF
@@ -1247,9 +1258,9 @@ struct kbase_device {
 	struct dentry *debugfs_ctx_directory;
 	struct dentry *debugfs_instr_directory;
 
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG
 	u64 debugfs_as_read_bitmap;
-#endif /* CONFIG_MALI_DEBUG */
+#endif /* CONFIG_MALI_BIFROST_DEBUG */
 
 #if !MALI_USE_CSF
 	wait_queue_head_t job_fault_wq;
@@ -1360,6 +1371,18 @@ struct kbase_device {
 
 	struct notifier_block oom_notifier_block;
 
+#if !MALI_USE_CSF
+	spinlock_t quick_reset_lock;
+	bool quick_reset_enabled;
+	/*
+	 * 进入 quck_reset_mode 后 (quick_reset_enabled 为 true),
+	 * 对已经进入 KBASE_JD_ATOM_STATE_HW_COMPLETED 状态的 atom 的计数.
+	 *
+	 * 若 num_of_atoms_hw_completed 达到一定值, 将退出 quck_reset_mode.
+	 * 见 kbase_js_complete_atom() 对 num_of_atoms_hw_completed 的引用.
+	 */
+	u32 num_of_atoms_hw_completed;
+#endif
 
 	struct kbase_mem_migrate mem_migrate;
 

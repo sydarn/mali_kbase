@@ -73,7 +73,7 @@ static u64 kbase_job_write_affinity(struct kbase_device *kbdev, base_jd_core_req
 	}
 
 	if (unlikely(!affinity && !skip_affinity_check)) {
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG
 		u64 shaders_ready = kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_SHADER);
 
 		WARN_ON(!(shaders_ready & kbdev->pm.backend.shaders_avail));
@@ -86,7 +86,7 @@ static u64 kbase_job_write_affinity(struct kbase_device *kbdev, base_jd_core_req
 			affinity =
 				kbasep_apply_limited_core_mask(kbdev, affinity, limited_core_mask);
 
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG
 			/* affinity should never be 0 */
 			WARN_ON(!affinity);
 #endif
@@ -509,13 +509,13 @@ void kbasep_job_slot_soft_or_hard_stop_do_action(struct kbase_device *kbdev, uns
 
 	if (action == JS_COMMAND_SOFT_STOP) {
 		if (kbase_jd_katom_is_protected(target_katom)) {
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG
 			dev_dbg(kbdev->dev,
 				"Attempt made to soft-stop a job that cannot be soft-stopped. core_reqs = 0x%x",
 				(unsigned int)core_reqs);
 #else
 			CSTD_UNUSED(core_reqs);
-#endif /* CONFIG_MALI_DEBUG */
+#endif /* CONFIG_MALI_BIFROST_DEBUG */
 			return;
 		}
 
@@ -890,6 +890,9 @@ static void kbasep_reset_timeout_worker(struct work_struct *data)
 	if (atomic_read(&kbdev->hwaccess.backend.reset_gpu) == KBASE_RESET_GPU_SILENT)
 		silent = true;
 
+	if (kbase_is_quick_reset_enabled(kbdev))
+		silent = true;
+
 	KBASE_KTRACE_ADD_JM(kbdev, JM_BEGIN_RESET_WORKER, NULL, NULL, 0u, 0);
 
 	/* Disable GPU hardware counters.
@@ -1184,9 +1187,10 @@ void kbase_reset_gpu(struct kbase_device *kbdev)
 		return;
 	atomic_set(&kbdev->hwaccess.backend.reset_gpu, KBASE_RESET_GPU_COMMITTED);
 
-	dev_err(kbdev->dev,
-		"Preparing to soft-reset GPU: Waiting (up to %d ms) for all jobs to complete soft-stop\n",
-		kbdev->reset_timeout_ms);
+	if (!kbase_is_quick_reset_enabled(kbdev))
+		dev_err(kbdev->dev,
+			"Preparing to soft-reset GPU: Waiting (up to %d ms) for all jobs to complete soft-stop\n",
+			kbdev->reset_timeout_ms);
 
 	hrtimer_start(&kbdev->hwaccess.backend.reset_timer,
 		      HR_TIMER_DELAY_MSEC(kbdev->reset_timeout_ms), HRTIMER_MODE_REL);
@@ -1205,9 +1209,10 @@ void kbase_reset_gpu_locked(struct kbase_device *kbdev)
 		return;
 	atomic_set(&kbdev->hwaccess.backend.reset_gpu, KBASE_RESET_GPU_COMMITTED);
 
-	dev_err(kbdev->dev,
-		"Preparing to soft-reset GPU: Waiting (up to %d ms) for all jobs to complete soft-stop\n",
-		kbdev->reset_timeout_ms);
+	if (!kbase_is_quick_reset_enabled(kbdev))
+		dev_err(kbdev->dev,
+			"Preparing to soft-reset GPU: Waiting (up to %d ms) for all jobs to complete soft-stop\n",
+			kbdev->reset_timeout_ms);
 	hrtimer_start(&kbdev->hwaccess.backend.reset_timer,
 		      HR_TIMER_DELAY_MSEC(kbdev->reset_timeout_ms), HRTIMER_MODE_REL);
 
@@ -1276,7 +1281,7 @@ static u64 kbasep_apply_limited_core_mask(const struct kbase_device *kbdev, cons
 {
 	const u64 result = affinity & limited_core_mask;
 
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG
 	dev_dbg(kbdev->dev,
 		"Limiting affinity due to BASE_JD_REQ_LIMITED_CORE_MASK from 0x%lx to 0x%lx (mask is 0x%lx)\n",
 		(unsigned long)affinity, (unsigned long)result, (unsigned long)limited_core_mask);

@@ -22,10 +22,9 @@
 #include "mali_kbase.h"
 #include "mali_kbase_regs_history_debugfs.h"
 
-#if defined(CONFIG_DEBUG_FS) && !IS_ENABLED(CONFIG_MALI_NO_MALI)
+#if defined(CONFIG_DEBUG_FS) && !IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)
 
 #include <linux/debugfs.h>
-#include <linux/version_compat_defs.h>
 
 /**
  * kbase_io_history_resize - resize the register access history buffer.
@@ -231,4 +230,4 @@ void kbasep_regs_history_debugfs_init(struct kbase_device *kbdev)
 	debugfs_create_file("regs_history", 0444, kbdev->mali_debugfs_directory, &kbdev->io_history,
 			    &regs_history_fops);
 }
-#endif /* defined(CONFIG_DEBUG_FS) && !IS_ENABLED(CONFIG_MALI_NO_MALI) */
+#endif /* defined(CONFIG_DEBUG_FS) && !IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI) */

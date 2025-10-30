@@ -26,7 +26,7 @@
 #include "mali_kbase_hw_access.h"
 #include "mali_kbase_hw_access_regmap.h"
 
-#include <uapi/gpu/arm/midgard/gpu/mali_kbase_gpu_id.h>
+#include <uapi/gpu/arm/bifrost/gpu/mali_kbase_gpu_id.h>
 
 #define KBASE_REGMAP_ACCESS_ALWAYS_POWERED (1U << 16)
 
@@ -97,7 +97,7 @@ bool kbase_reg_is_valid(struct kbase_device *kbdev, u32 reg_enum)
 
 bool kbase_reg_is_accessible(struct kbase_device *kbdev, u32 reg_enum, u32 flags)
 {
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG
 	if (WARN(!kbase_reg_is_valid(kbdev, reg_enum), "Invalid register enum 0x%x: %s", reg_enum,
 		 kbase_reg_get_enum_string(reg_enum)))
 		return false;
@@ -150,7 +150,7 @@ int kbase_regmap_init(struct kbase_device *kbdev)
 	if (WARN_ON(kbdev->dev == NULL))
 		return -ENODEV;
 
-	if (!IS_ENABLED(CONFIG_MALI_NO_MALI) && WARN_ON(kbdev->reg == NULL))
+	if (!IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI) && WARN_ON(kbdev->reg == NULL))
 		return -ENXIO;
 
 	lut_arch_id = kbase_regmap_backend_init(kbdev);

@@ -292,7 +292,7 @@ static inline void trace_atom_completion_for_gpu_metrics(struct kbase_jd_atom *c
 	struct kbase_context *kctx = katom->kctx;
 	struct kbase_jd_atom *queued = kbase_gpu_inspect(kctx->kbdev, katom->slot_nr, 1);
 
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG
 	WARN_ON(!kbase_gpu_inspect(kctx->kbdev, katom->slot_nr, 0));
 #endif
 

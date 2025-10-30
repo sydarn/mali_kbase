@@ -1314,7 +1314,7 @@ static void kbase_csf_fence_wait_callback(struct dma_fence *fence, struct dma_fe
 	struct kbase_kcpu_command_queue *kcpu_queue = fence_info->kcpu_queue;
 	struct kbase_context *const kctx = kcpu_queue->kctx;
 
-#ifdef CONFIG_MALI_FENCE_DEBUG
+#ifdef CONFIG_MALI_BIFROST_FENCE_DEBUG
 	/* Fence gets signaled. Deactivate the timer for fence-wait timeout */
 	del_timer(&kcpu_queue->fence_timeout);
 #endif
@@ -1339,7 +1339,7 @@ static void kbasep_kcpu_fence_wait_cancel(struct kbase_kcpu_command_queue *kcpu_
 	if (kcpu_queue->fence_wait_processed) {
 		bool removed = dma_fence_remove_callback(fence_info->fence, &fence_info->fence_cb);
 
-#ifdef CONFIG_MALI_FENCE_DEBUG
+#ifdef CONFIG_MALI_BIFROST_FENCE_DEBUG
 		/* Fence-wait cancelled or fence signaled. In the latter case
 		 * the timer would already have been deactivated inside
 		 * kbase_csf_fence_wait_callback().
@@ -1464,7 +1464,7 @@ static int kbase_kcpu_fence_wait_process(struct kbase_kcpu_command_queue *kcpu_q
 		fence_status = cb_err;
 		if (cb_err == 0) {
 			kcpu_queue->fence_wait_processed = true;
-			if (IS_ENABLED(CONFIG_MALI_FENCE_DEBUG))
+			if (IS_ENABLED(CONFIG_MALI_BIFROST_FENCE_DEBUG))
 				fence_wait_timeout_start(kcpu_queue);
 		} else if (cb_err == -ENOENT) {
 			fence_status = dma_fence_get_status(fence);
@@ -1602,7 +1602,7 @@ static void kcpu_force_signal_fence(struct kbase_kcpu_command_queue *kcpu_queue)
 	int i;
 	struct dma_fence *fence;
 	struct kbase_context *const kctx = kcpu_queue->kctx;
-#ifdef CONFIG_MALI_FENCE_DEBUG
+#ifdef CONFIG_MALI_BIFROST_FENCE_DEBUG
 	int del;
 #endif
 
@@ -1644,7 +1644,7 @@ static void kcpu_force_signal_fence(struct kbase_kcpu_command_queue *kcpu_queue)
 	 * because we signaled all the pending fence in the queue
 	 */
 	atomic_set(&kcpu_queue->fence_signal_pending_cnt, 0);
-#ifdef CONFIG_MALI_FENCE_DEBUG
+#ifdef CONFIG_MALI_BIFROST_FENCE_DEBUG
 	del = del_timer_sync(&kcpu_queue->fence_signal_timeout);
 	dev_info(kctx->kbdev->dev, "kbase KCPU [%pK] delete fence signal timeout timer ret: %d",
 		 kcpu_queue, del);
@@ -1674,7 +1674,7 @@ static void fence_signal_timeout_cb(struct timer_list *timer)
 	struct kbase_kcpu_command_queue *kcpu_queue =
 		container_of(timer, struct kbase_kcpu_command_queue, fence_signal_timeout);
 	struct kbase_context *const kctx = kcpu_queue->kctx;
-#ifdef CONFIG_MALI_FENCE_DEBUG
+#ifdef CONFIG_MALI_BIFROST_FENCE_DEBUG
 	dev_warn(kctx->kbdev->dev, "kbase KCPU fence signal timeout callback triggered");
 #endif
 
@@ -1717,12 +1717,12 @@ static int kbasep_kcpu_fence_signal_process(struct kbase_kcpu_command_queue *kcp
 	/* If one has multiple enqueued fence signal commands, re-arm the timer */
 	if (atomic_dec_return(&kcpu_queue->fence_signal_pending_cnt) > 0) {
 		fence_signal_timeout_start(kcpu_queue);
-#ifdef CONFIG_MALI_FENCE_DEBUG
+#ifdef CONFIG_MALI_BIFROST_FENCE_DEBUG
 		dev_dbg(kctx->kbdev->dev,
 			"kbase re-arm KCPU fence signal timeout timer for next signal command");
 #endif
 	} else {
-#ifdef CONFIG_MALI_FENCE_DEBUG
+#ifdef CONFIG_MALI_BIFROST_FENCE_DEBUG
 		int del = del_timer_sync(&kcpu_queue->fence_signal_timeout);
 
 		dev_dbg(kctx->kbdev->dev, "kbase KCPU delete fence signal timeout timer ret: %d",
@@ -2782,7 +2782,7 @@ int kbase_csf_kcpu_queue_new(struct kbase_context *kctx, struct kbase_ioctl_kcpu
 		kbase_timer_setup(&queue->fence_signal_timeout, fence_signal_timeout_cb);
 	}
 
-	if (IS_ENABLED(CONFIG_MALI_FENCE_DEBUG))
+	if (IS_ENABLED(CONFIG_MALI_BIFROST_FENCE_DEBUG))
 		kbase_timer_setup(&queue->fence_timeout, fence_timeout_callback);
 
 	bitmap_set(kctx->csf.kcpu_queues.in_use, (unsigned int)idx, 1);
@@ -2830,7 +2830,7 @@ int kbase_csf_kcpu_queue_halt_timers(struct kbase_device *kbdev)
 					ret ? "pending" : "not pending");
 			}
 
-#ifdef CONFIG_MALI_FENCE_DEBUG
+#ifdef CONFIG_MALI_BIFROST_FENCE_DEBUG
 			if (kcpu_queue->fence_wait_processed) {
 				int ret = del_timer_sync(&kcpu_queue->fence_timeout);
 
@@ -2864,7 +2864,7 @@ void kbase_csf_kcpu_queue_resume_timers(struct kbase_device *kbdev)
 				continue;
 
 			mutex_lock(&kcpu_queue->lock);
-#ifdef CONFIG_MALI_FENCE_DEBUG
+#ifdef CONFIG_MALI_BIFROST_FENCE_DEBUG
 			if (kcpu_queue->fence_wait_processed) {
 				fence_wait_timeout_start(kcpu_queue);
 				dev_dbg(kbdev->dev,

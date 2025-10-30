@@ -41,7 +41,7 @@
 #include <mali_kbase.h>
 #include <mali_kbase_mem_linux.h>
 #include <tl/mali_kbase_tracepoints.h>
-#include <uapi/gpu/arm/midgard/mali_kbase_ioctl.h>
+#include <uapi/gpu/arm/bifrost/mali_kbase_ioctl.h>
 #include <mmu/mali_kbase_mmu.h>
 #include <mali_kbase_caps.h>
 #include <mali_kbase_trace_gpu_mem.h>
@@ -1253,6 +1253,9 @@ static void kbase_mem_umm_unmap_attachment(struct kbase_context *kctx,
 	alloc->nents = 0;
 }
 
+/* to replace sg_dma_len. */
+#define MALI_SG_DMA_LEN(sg)        ((sg)->length)
+
 /**
  * kbase_mem_umm_map_attachment - Prepare attached dma-buf for GPU mapping
  * @kctx: Pointer to kbase context
@@ -1291,10 +1294,10 @@ static int kbase_mem_umm_map_attachment(struct kbase_context *kctx, struct kbase
 	pa = kbase_get_gpu_phy_pages(reg);
 
 	for_each_sg(sgt->sgl, s, sgt->nents, i) {
-		size_t j, pages = PFN_UP(sg_dma_len(s));
+		size_t j, pages = PFN_UP(MALI_SG_DMA_LEN(s));
 
-		WARN_ONCE(sg_dma_len(s) & (PAGE_SIZE - 1),
-			  "sg_dma_len(s)=%u is not a multiple of PAGE_SIZE\n", sg_dma_len(s));
+		WARN_ONCE(MALI_SG_DMA_LEN(s) & (PAGE_SIZE - 1),
+			  "MALI_SG_DMA_LEN(s)=%u is not a multiple of PAGE_SIZE\n", MALI_SG_DMA_LEN(s));
 
 		WARN_ONCE(sg_dma_address(s) & (PAGE_SIZE - 1),
 			  "sg_dma_address(s)=%llx is not aligned to PAGE_SIZE\n",
@@ -3331,7 +3334,7 @@ static unsigned long get_queue_doorbell_pfn(struct kbase_device *kbdev, struct k
 	 * assigned one, otherwise a dummy page. Always return the
 	 * dummy page in no mali builds.
 	 */
-#if IS_ENABLED(CONFIG_MALI_NO_MALI)
+#if IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)
 	return PFN_DOWN(as_phys_addr_t(kbdev->csf.dummy_db_page));
 #else
 	if (queue->doorbell_nr == KBASEP_USER_DB_NR_INVALID)
@@ -3680,7 +3683,7 @@ static vm_fault_t kbase_csf_user_reg_vm_fault(struct vm_fault *vmf)
 	 *
 	 * In no mail builds, always map in the dummy page.
 	 */
-	if (IS_ENABLED(CONFIG_MALI_NO_MALI) || !kbdev->pm.backend.gpu_powered)
+	if (IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI) || !kbdev->pm.backend.gpu_powered)
 		pfn = PFN_DOWN(as_phys_addr_t(kbdev->csf.user_reg.dummy_page));
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 

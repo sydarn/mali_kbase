@@ -234,9 +234,11 @@ static int kbasep_migrate_page_pt_mapped(struct page *old_page, struct page *new
 	if (ret == 0) {
 		dma_unmap_page(kbdev->dev, old_dma_addr, PAGE_SIZE, DMA_BIDIRECTIONAL);
 		__ClearPageMovable(old_page);
+		page_md->status = PAGE_MOVABLE_CLEAR(page_md->status);
 		ClearPagePrivate(old_page);
 		put_page(old_page);
 
+		page_md = kbase_page_private(new_page);
 #if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
 		__SetPageMovable(new_page, &movable_ops);
 		page_md->status = PAGE_MOVABLE_SET(page_md->status);
@@ -312,8 +314,10 @@ static int kbasep_migrate_page_allocated_mapped(struct page *old_page, struct pa
 		/* Clear PG_movable from the old page and release reference. */
 		ClearPagePrivate(old_page);
 		__ClearPageMovable(old_page);
+		page_md->status = PAGE_MOVABLE_CLEAR(page_md->status);
 		put_page(old_page);
 
+		page_md = kbase_page_private(new_page);
 		/* Set PG_movable to the new page. */
 #if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
 		__SetPageMovable(new_page, &movable_ops);
@@ -516,6 +520,7 @@ static int kbase_page_migrate(struct page *new_page, struct page *old_page, enum
 
 		kbase_free_page_metadata(kbdev, old_page, NULL);
 		__ClearPageMovable(old_page);
+		page_md->status = PAGE_MOVABLE_CLEAR(page_md->status);
 		put_page(old_page);
 
 		/* Just free new page to avoid lock contention. */
@@ -616,6 +621,7 @@ static void kbase_page_putback(struct page *p)
 	    status_free_pt_isolated_in_progress) {
 		__ClearPageMovable(p);
 		page_md->status = PAGE_MOVABLE_CLEAR(page_md->status);
+
 		if (!WARN_ON_ONCE(!kbdev)) {
 			struct kbase_mem_migrate *mem_migrate = &kbdev->mem_migrate;
 

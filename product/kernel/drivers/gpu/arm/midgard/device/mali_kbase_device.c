@@ -53,14 +53,14 @@
 #include "mali_kbase_pbha.h"
 #include "arbiter/mali_kbase_arbiter_pm.h"
 
-#if defined(CONFIG_DEBUG_FS) && !IS_ENABLED(CONFIG_MALI_NO_MALI)
+#if defined(CONFIG_DEBUG_FS) && !IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)
 
 /* Number of register accesses for the buffer that we allocate during
  * initialization time. The buffer size can be changed later via debugfs.
  */
 #define KBASEP_DEFAULT_REGISTER_HISTORY_SIZE ((u16)512)
 
-#endif /* defined(CONFIG_DEBUG_FS) && !IS_ENABLED(CONFIG_MALI_NO_MALI) */
+#endif /* defined(CONFIG_DEBUG_FS) && !IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI) */
 
 static DEFINE_MUTEX(kbase_dev_list_lock);
 static LIST_HEAD(kbase_dev_list);
@@ -250,11 +250,26 @@ static int mali_oom_notifier_handler(struct notifier_block *nb, unsigned long ac
 
 	list_for_each_entry(kctx, &kbdev->kctx_list, kctx_list_link) {
 		struct task_struct *task = kctx->task;
+		struct pid *tgid_struct;
+		struct task_struct *tgid_task;
+
 		unsigned long task_alloc_total =
 			KBASE_PAGES_TO_KIB(atomic_read(&(kctx->used_pages)));
 
-		dev_err(kbdev->dev, "OOM notifier: tsk %s  tgid (%u)  pid (%u) %lu kB\n",
-			task ? task->comm : "[null task]", kctx->tgid, kctx->pid, task_alloc_total);
+		rcu_read_lock();
+		tgid_struct = find_get_pid(kctx->tgid);
+		tgid_task = pid_task(tgid_struct, PIDTYPE_PID);
+
+		dev_err(kbdev->dev,
+			"OOM notifier: tsk %s:%s  tgid (%u)  pid (%u) %lu kB\n",
+			tgid_task ? tgid_task->comm : "[null task]",
+			task ? task->comm : "[null task]",
+			kctx->tgid,
+			kctx->pid,
+			task_alloc_total);
+
+		put_pid(tgid_struct);
+		rcu_read_unlock();
 	}
 
 	mutex_unlock(&kbdev->kctx_list_lock);
@@ -352,6 +367,12 @@ int kbase_device_misc_init(struct kbase_device *const kbdev)
 		kbdev->oom_notifier_block.notifier_call = NULL;
 	}
 
+#if !MALI_USE_CSF
+	spin_lock_init(&kbdev->quick_reset_lock);
+	kbdev->quick_reset_enabled = true;
+	kbdev->num_of_atoms_hw_completed = 0;
+#endif
+
 #if MALI_USE_CSF
 	atomic_set(&kbdev->fence_signal_timeout_enabled, 1);
 #endif
@@ -384,6 +405,37 @@ void kbase_device_misc_term(struct kbase_device *kbdev)
 		dev_warn(kbdev->dev, "Terminating Kbase device with live fence metadata!");
 #endif
 }
+
+#if !MALI_USE_CSF
+void kbase_enable_quick_reset(struct kbase_device *kbdev)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&kbdev->quick_reset_lock, flags);
+
+	kbdev->quick_reset_enabled = true;
+	kbdev->num_of_atoms_hw_completed = 0;
+
+	spin_unlock_irqrestore(&kbdev->quick_reset_lock, flags);
+}
+
+void kbase_disable_quick_reset(struct kbase_device *kbdev)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&kbdev->quick_reset_lock, flags);
+
+	kbdev->quick_reset_enabled = false;
+	kbdev->num_of_atoms_hw_completed = 0;
+
+	spin_unlock_irqrestore(&kbdev->quick_reset_lock, flags);
+}
+
+bool kbase_is_quick_reset_enabled(struct kbase_device *kbdev)
+{
+	return kbdev->quick_reset_enabled;
+}
+#endif
 
 void kbase_device_free(struct kbase_device *kbdev)
 {

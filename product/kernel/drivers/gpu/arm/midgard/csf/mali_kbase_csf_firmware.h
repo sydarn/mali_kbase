@@ -25,7 +25,7 @@
 #include "device/mali_kbase_device.h"
 #include <csf/mali_kbase_csf_registers.h>
 #include <hw_access/mali_kbase_hw_access_regmap.h>
-#include <uapi/gpu/arm/midgard/gpu/mali_kbase_gpu_regmap.h>
+#include <uapi/gpu/arm/bifrost/gpu/mali_kbase_gpu_regmap.h>
 
 /*
  * PAGE_KERNEL_RO was only defined on 32bit ARM in 4.19 in:
@@ -547,11 +547,11 @@ int kbase_csf_wait_protected_mode_enter(struct kbase_device *kbdev);
 
 static inline bool kbase_csf_firmware_mcu_halted(struct kbase_device *kbdev)
 {
-#if IS_ENABLED(CONFIG_MALI_NO_MALI)
+#if IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)
 	return true;
 #else
 	return (kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(MCU_STATUS)) == MCU_STATUS_VALUE_HALT);
-#endif /* CONFIG_MALI_NO_MALI */
+#endif /* CONFIG_MALI_BIFROST_NO_MALI */
 }
 
 /**
@@ -772,13 +772,13 @@ int kbase_csf_firmware_mcu_shared_mapping_init(struct kbase_device *kbdev, unsig
 void kbase_csf_firmware_mcu_shared_mapping_term(struct kbase_device *kbdev,
 						struct kbase_csf_mapping *csf_mapping);
 
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG 
 extern bool fw_debug;
 #endif
 
 static inline long kbase_csf_timeout_in_jiffies(const unsigned int msecs)
 {
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG
 	return (fw_debug ? MAX_SCHEDULE_TIMEOUT : (long)msecs_to_jiffies(msecs));
 #else
 	return (long)msecs_to_jiffies(msecs);

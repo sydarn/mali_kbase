@@ -55,10 +55,13 @@
 #include <asm/arch_timer.h>
 #include <linux/delay.h>
 #include <linux/version_compat_defs.h>
-#include <mali_kbase_config_defaults.h>
-#define MALI_MAX_DEFAULT_FIRMWARE_NAME_LEN ((size_t)20)
 
-static char default_fw_name[MALI_MAX_DEFAULT_FIRMWARE_NAME_LEN] = "mali_csffw.bin";
+#include <mali_kbase_config_defaults.h>
+#define MALI_MAX_DEFAULT_FIRMWARE_NAME_LEN ((size_t)64)
+
+#define DEFAULT_FW_NAME MALI_RELEASE_NAME".mali_csffw.bin"
+
+static char default_fw_name[MALI_MAX_DEFAULT_FIRMWARE_NAME_LEN] = DEFAULT_FW_NAME;
 module_param_string(fw_name, default_fw_name, sizeof(default_fw_name), 0644);
 MODULE_PARM_DESC(fw_name, "firmware image");
 
@@ -69,7 +72,7 @@ MODULE_PARM_DESC(csf_firmware_boot_timeout_ms, "Maximum time to wait for firmwar
 
 static bool kbase_iter_trace_enable;
 
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG
 /* Makes Driver wait indefinitely for an acknowledgment for the different
  * requests it sends to firmware. Otherwise the timeouts interfere with the
  * use of debugger for source-level debugging of firmware as Driver initiates
@@ -754,7 +757,7 @@ static int parse_memory_setup_entry(struct kbase_device *kbdev,
 		protected_mode = true;
 
 	if (protected_mode && kbdev->csf.pma_dev == NULL) {
-		dev_err(kbdev->dev,
+		dev_dbg(kbdev->dev,
 			"Protected memory allocator not found, Firmware protected mode entry will not be supported");
 		return 0;
 	}
@@ -2443,9 +2446,28 @@ int kbase_csf_firmware_late_init(struct kbase_device *kbdev)
 	return 0;
 }
 
+#ifdef CONFIG_MALI_CSF_INCLUDE_FW
+asm (
+"	.pushsection .rodata, \"a\"		\n"
+"	.ascii \"CSFFW_ST\"			\n"
+"	.global mali_csffw			\n"
+"mali_csffw:					\n"
+"	.incbin \"drivers/gpu/arm/bifrost/mali_csffw.bin\"	\n"
+"	.global mali_csffw_end			\n"
+"mali_csffw_end:				\n"
+"	.ascii \"CSFFW_ED\"			\n"
+"	.popsection				\n"
+);
+
+extern char mali_csffw;
+extern char mali_csffw_end;
+#endif
+
 int kbase_csf_firmware_load_init(struct kbase_device *kbdev)
 {
+#ifndef CONFIG_MALI_CSF_INCLUDE_FW
 	const struct firmware *firmware = NULL;
+#endif
 	struct kbase_csf_mcu_fw *const mcu_fw = &kbdev->csf.fw;
 	const u32 magic = FIRMWARE_HEADER_MAGIC;
 	u8 version_major, version_minor;
@@ -2453,7 +2475,9 @@ int kbase_csf_firmware_load_init(struct kbase_device *kbdev)
 	u32 entry_end_offset;
 	u32 entry_offset;
 	int ret;
+#ifndef CONFIG_MALI_CSF_INCLUDE_FW
 	const char *fw_name = default_fw_name;
+#endif
 
 	lockdep_assert_held(&kbdev->fw_load_lock);
 
@@ -2476,6 +2500,14 @@ int kbase_csf_firmware_load_init(struct kbase_device *kbdev)
 		goto err_out;
 	}
 
+#ifdef CONFIG_MALI_CSF_INCLUDE_FW
+	mcu_fw->size = &mali_csffw_end - &mali_csffw;
+
+	dev_info(kbdev->dev, "use 'driver built-in firmware' directly\n");
+	mcu_fw->data = (u8 *)(&mali_csffw);
+	dev_dbg(kbdev->dev, "Firmware image (%zu-bytes) retained in csf.fw\n",
+			mcu_fw->size);
+#else
 #if IS_ENABLED(CONFIG_OF)
 	/* If we can't read CSF firmware name from DTB,
 	 * fw_name is not modified and remains the default.
@@ -2503,6 +2535,7 @@ int kbase_csf_firmware_load_init(struct kbase_device *kbdev)
 
 #endif /* IS_ENABLED(CONFIG_OF) */
 
+	dev_info(kbdev->dev, "to load firmware image '%s'\n", fw_name);
 	if (request_firmware(&firmware, fw_name, kbdev->dev) != 0) {
 		dev_err(kbdev->dev, "Failed to load firmware image '%s'\n", fw_name);
 		ret = -ENOENT;
@@ -2521,6 +2554,7 @@ int kbase_csf_firmware_load_init(struct kbase_device *kbdev)
 
 		release_firmware(firmware);
 	}
+#endif /* CONFIG_MALI_CSF_INCLUDE_FW */
 
 	/* If error in loading or saving the image, branches to error out */
 	if (ret)
@@ -2747,6 +2781,8 @@ void kbase_csf_firmware_unload_term(struct kbase_device *kbdev)
 		kfree(metadata);
 	}
 
+	if (IS_ENABLED(CONFIG_MALI_CSF_INCLUDE_FW))
+		kbdev->csf.fw.data = NULL;
 	if (kbdev->csf.fw.data) {
 		/* Free the copy of the firmware image */
 		vfree(kbdev->csf.fw.data);

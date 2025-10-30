@@ -167,7 +167,7 @@ int kbase_reg_get_offset(struct kbase_device *kbdev, u32 reg_enum, u32 *offset);
  */
 int kbase_reg_get_enum(struct kbase_device *kbdev, u32 offset, u32 *reg_enum);
 
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG
 /**
  * kbase_reg_get_enum_string - get the string for a particular enum
  * @reg_enum: Register enum
@@ -175,7 +175,7 @@ int kbase_reg_get_enum(struct kbase_device *kbdev, u32 offset, u32 *reg_enum);
  * Return: string containing the name of enum
  */
 const char *kbase_reg_get_enum_string(u32 reg_enum);
-#endif /* CONFIG_MALI_DEBUG */
+#endif /* CONFIG_MALI_BIFROST_DEBUG */
 
 /**
  * kbase_reg_get_gpu_id - get GPU ID from register or dummy model

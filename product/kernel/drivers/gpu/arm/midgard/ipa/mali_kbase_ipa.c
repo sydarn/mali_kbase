@@ -512,7 +512,7 @@ static void opp_translate_freq_voltage(struct kbase_device *kbdev, unsigned long
 				       unsigned long nominal_voltage, unsigned long *freqs,
 				       unsigned long *volts)
 {
-#if IS_ENABLED(CONFIG_MALI_NO_MALI)
+#if IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)
 	/* An arbitrary voltage and frequency value can be chosen for testing
 	 * in no mali configuration which may not match with any OPP level.
 	 */

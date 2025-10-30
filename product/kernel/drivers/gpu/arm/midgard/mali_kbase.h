@@ -26,7 +26,7 @@
 
 #include <mali_kbase_debug.h>
 
-#include <uapi/gpu/arm/midgard/mali_base_kernel.h>
+#include <uapi/gpu/arm/bifrost/mali_base_kernel.h>
 #include <mali_kbase_linux.h>
 #include <linux/version_compat_defs.h>
 
@@ -44,7 +44,7 @@
 #include "mali_kbase_gpu_memory_debugfs.h"
 #include "mali_kbase_mem_profile_debugfs.h"
 #include "mali_kbase_gpuprops.h"
-#include <uapi/gpu/arm/midgard/mali_kbase_ioctl.h>
+#include <uapi/gpu/arm/bifrost/mali_kbase_ioctl.h>
 #if !MALI_USE_CSF
 #include "mali_kbase_debug_job_fault.h"
 #include "mali_kbase_jd_debugfs.h"
@@ -122,6 +122,13 @@ struct kbase_device *kbase_device_alloc(void);
  */
 int kbase_device_misc_init(struct kbase_device *kbdev);
 void kbase_device_misc_term(struct kbase_device *kbdev);
+
+#if !MALI_USE_CSF
+void kbase_enable_quick_reset(struct kbase_device *kbdev);
+void kbase_disable_quick_reset(struct kbase_device *kbdev);
+bool kbase_is_quick_reset_enabled(struct kbase_device *kbdev);
+#endif
+
 void kbase_device_free(struct kbase_device *kbdev);
 int kbase_device_has_feature(struct kbase_device *kbdev, u32 feature);
 

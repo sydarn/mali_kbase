@@ -46,7 +46,7 @@
 #endif
 #include <asm/arch_timer.h>
 
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG
 /* Makes Driver wait indefinitely for an acknowledgment for the different
  * requests it sends to firmware. Otherwise the timeouts interfere with the
  * use of debugger for source-level debugging of firmware as Driver initiates

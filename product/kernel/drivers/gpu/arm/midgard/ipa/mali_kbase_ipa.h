@@ -22,21 +22,26 @@
 #ifndef _KBASE_IPA_H_
 #define _KBASE_IPA_H_
 
-#if defined(CONFIG_MALI_DEVFREQ) && defined(CONFIG_DEVFREQ_THERMAL)
+#if defined(CONFIG_MALI_BIFROST_DEVFREQ) && defined(CONFIG_DEVFREQ_THERMAL)
 
 struct devfreq;
 
 /**
  * enum kbase_ipa_block_type - Type of block for which power estimation is done.
  *
+ * @KBASE_IPA_BLOCK_TYPE_USING_CLK_MALI:
+ *				       Blocks using clk_mali in dts.
  * @KBASE_IPA_BLOCK_TYPE_TOP_LEVEL:    Top-level block, that covers CSHW,
  *                                     MEMSYS, Tiler.
  * @KBASE_IPA_BLOCK_TYPE_SHADER_CORES: All Shader cores.
+ * @KBASE_IPA_BLOCK_TYPE_FOR_CLK_GPU:  Dummy for clk_gpu in dts.
  * @KBASE_IPA_BLOCK_TYPE_NUM:          Number of blocks.
  */
 enum kbase_ipa_block_type {
+	KBASE_IPA_BLOCK_TYPE_USING_CLK_MALI,
 	KBASE_IPA_BLOCK_TYPE_TOP_LEVEL,
 	KBASE_IPA_BLOCK_TYPE_SHADER_CORES,
+	KBASE_IPA_BLOCK_TYPE_FOR_CLK_GPU,
 	KBASE_IPA_BLOCK_TYPE_NUM
 };
 
@@ -284,12 +289,12 @@ extern struct devfreq_cooling_power kbase_ipa_power_model_ops;
  */
 void kbase_ipa_reset_data(struct kbase_device *kbdev);
 
-#else /* !(defined(CONFIG_MALI_DEVFREQ) && defined(CONFIG_DEVFREQ_THERMAL)) */
+#else /* !(defined(CONFIG_MALI_BIFROST_DEVFREQ) && defined(CONFIG_DEVFREQ_THERMAL)) */
 
 static inline void kbase_ipa_protection_mode_switch_event(struct kbase_device *kbdev)
 {
 }
 
-#endif /* (defined(CONFIG_MALI_DEVFREQ) && defined(CONFIG_DEVFREQ_THERMAL)) */
+#endif /* (defined(CONFIG_MALI_BIFROST_DEVFREQ) && defined(CONFIG_DEVFREQ_THERMAL)) */
 
 #endif

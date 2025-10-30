@@ -41,7 +41,7 @@
 #include <mmu/mali_kbase_mmu.h>
 #include <mmu/mali_kbase_mmu_internal.h>
 #include <device/mali_kbase_device.h>
-#include <uapi/gpu/arm/midgard/gpu/mali_kbase_gpu_id.h>
+#include <uapi/gpu/arm/bifrost/gpu/mali_kbase_gpu_id.h>
 #if !MALI_USE_CSF
 #include <mali_kbase_hwaccess_jm.h>
 #endif
@@ -227,7 +227,7 @@ static inline phys_addr_t allocate_pgd_sub_page(struct kbase_page_metadata *page
 	sub_page_index = find_first_zero_bit(page_md->data.pt_mapped.allocated_sub_pages,
 					     GPU_PAGES_PER_CPU_PAGE);
 
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG
 	if (WARN_ON_ONCE(sub_page_index >= GPU_PAGES_PER_CPU_PAGE))
 		return KBASE_INVALID_PHYSICAL_ADDRESS;
 	if (WARN_ON_ONCE(page_md->data.pt_mapped.num_allocated_sub_pages > GPU_PAGES_PER_CPU_PAGE))
@@ -252,7 +252,7 @@ static int free_pgd_sub_page(phys_addr_t pgd)
 	struct kbase_page_metadata *page_md = kbase_page_private(p);
 	const u32 sub_page_index = get_pgd_sub_page_index(pgd);
 
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG
 	if (WARN_ON_ONCE(!test_bit(sub_page_index, page_md->data.pt_mapped.allocated_sub_pages)))
 		return page_md->data.pt_mapped.num_allocated_sub_pages;
 #endif
@@ -3584,7 +3584,7 @@ static int kbase_mmu_update_pages_no_flush(struct kbase_device *kbdev, struct kb
 			unsigned int level_index = (vpfn >> 9) & 0x1FFU;
 			struct tagged_addr *target_phys = phys - index_in_large_page(*phys);
 
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG
 			WARN_ON_ONCE(!kbdev->mmu_mode->ate_is_valid(pgd_page[level_index],
 								    MIDGARD_MMU_LEVEL(2)));
 #endif
@@ -3602,7 +3602,7 @@ static int kbase_mmu_update_pages_no_flush(struct kbase_device *kbdev, struct kb
 				for (j = 0; j < GPU_PAGES_PER_CPU_PAGE; j++) {
 					phys_addr_t page_address =
 						base_phys_address + (j * GPU_PAGE_SIZE);
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG
 					WARN_ON_ONCE(!kbdev->mmu_mode->ate_is_valid(
 						pgd_page[index + i + j], MIDGARD_MMU_BOTTOMLEVEL));
 #endif
@@ -3966,7 +3966,7 @@ int kbase_mmu_migrate_page(struct tagged_addr old_phys, struct tagged_addr new_p
 	} else {
 		u64 managed_pte;
 
-#ifdef CONFIG_MALI_DEBUG
+#ifdef CONFIG_MALI_BIFROST_DEBUG
 		/* The PTE should be pointing to the page being migrated */
 		WARN_ON_ONCE(
 			as_phys_addr_t(old_phys) !=

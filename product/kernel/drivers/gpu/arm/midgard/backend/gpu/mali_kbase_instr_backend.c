@@ -441,7 +441,7 @@ int kbase_instr_backend_init(struct kbase_device *kbdev)
 
 #ifdef CONFIG_MALI_PRFCNT_SET_SELECT_VIA_DEBUG_FS
 /* Use the build time option for the override default. */
-#if defined(CONFIG_MALI_PRFCNT_SET_SECONDARY)
+#if defined(CONFIG_MALI_BIFROST_PRFCNT_SET_SECONDARY)
 	kbdev->hwcnt.backend.override_counter_set = KBASE_HWCNT_PHYSICAL_SET_SECONDARY;
 #elif defined(CONFIG_MALI_PRFCNT_SET_TERTIARY)
 	kbdev->hwcnt.backend.override_counter_set = KBASE_HWCNT_PHYSICAL_SET_TERTIARY;
