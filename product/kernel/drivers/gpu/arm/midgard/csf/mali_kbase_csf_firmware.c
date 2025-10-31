@@ -72,7 +72,7 @@ MODULE_PARM_DESC(csf_firmware_boot_timeout_ms, "Maximum time to wait for firmwar
 
 static bool kbase_iter_trace_enable;
 
-#ifdef CONFIG_MALI_BIFROST_DEBUG
+#ifdef CONFIG_MALI_DEBUG
 /* Makes Driver wait indefinitely for an acknowledgment for the different
  * requests it sends to firmware. Otherwise the timeouts interfere with the
  * use of debugger for source-level debugging of firmware as Driver initiates

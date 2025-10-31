@@ -57,7 +57,7 @@
  */
 
 /*---------------------------------------------------------------------------*/
-#ifndef CONFIG_MALI_BIFROST_DEVFREQ
+#ifndef CONFIG_MALI_DEVFREQ
 static inline void kbase_pm_get_dvfs_metrics(struct kbase_device *kbdev,
 					     struct kbasep_pm_metrics *last,
 					     struct kbasep_pm_metrics *diff)

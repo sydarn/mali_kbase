@@ -25,15 +25,15 @@
 #include <mali_kbase_gator.h>
 #include <mali_kbase_reg_track.h>
 #include <mali_kbase_mem_linux.h>
-#ifdef CONFIG_MALI_BIFROST_DEVFREQ
+#ifdef CONFIG_MALI_DEVFREQ
 #include <linux/devfreq.h>
 #include <backend/gpu/mali_kbase_devfreq.h>
 #if IS_ENABLED(CONFIG_DEVFREQ_THERMAL)
 #include <ipa/mali_kbase_ipa_debugfs.h>
 #endif /* CONFIG_DEVFREQ_THERMAL */
-#endif /* CONFIG_MALI_BIFROST_DEVFREQ */
+#endif /* CONFIG_MALI_DEVFREQ */
 #include "backend/gpu/mali_kbase_model_linux.h"
-#include "uapi/gpu/arm/bifrost/mali_kbase_mem_profile_debugfs_buf_size.h"
+#include "uapi/gpu/arm/midgard/mali_kbase_mem_profile_debugfs_buf_size.h"
 #include "mali_kbase_mem.h"
 #include "mali_kbase_mem_pool_debugfs.h"
 #include "mali_kbase_mem_pool_group.h"
@@ -48,7 +48,7 @@
 #include <mali_kbase_hwaccess_instr.h>
 #endif
 #include <mali_kbase_reset_gpu.h>
-#include <uapi/gpu/arm/bifrost/mali_kbase_ioctl.h>
+#include <uapi/gpu/arm/midgard/mali_kbase_ioctl.h>
 #if !MALI_USE_CSF
 #include "mali_kbase_kinstr_jm.h"
 #endif
@@ -1021,12 +1021,12 @@ static int kbase_api_get_cpu_gpu_timeinfo(struct kbase_context *kctx,
 	return 0;
 }
 
-#if IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)
+#if IS_ENABLED(CONFIG_MALI_NO_MALI)
 static int kbase_api_hwcnt_set(struct kbase_context *kctx, struct kbase_ioctl_hwcnt_values *values)
 {
 	return gpu_model_set_dummy_prfcnt_user_sample(u64_to_user_ptr(values->data), values->size);
 }
-#endif /* CONFIG_MALI_BIFROST_NO_MALI */
+#endif /* CONFIG_MALI_NO_MALI */
 
 static int kbase_api_disjoint_query(struct kbase_context *kctx,
 				    struct kbase_ioctl_disjoint_query *query)
@@ -1824,12 +1824,12 @@ static long kbase_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 					 kbase_api_get_cpu_gpu_timeinfo,
 					 union kbase_ioctl_get_cpu_gpu_timeinfo, kctx);
 		break;
-#if IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)
+#if IS_ENABLED(CONFIG_MALI_NO_MALI)
 	case KBASE_IOCTL_HWCNT_SET:
 		KBASE_HANDLE_IOCTL_IN(KBASE_IOCTL_HWCNT_SET, kbase_api_hwcnt_set,
 				      struct kbase_ioctl_hwcnt_values, kctx);
 		break;
-#endif /* CONFIG_MALI_BIFROST_NO_MALI */
+#endif /* CONFIG_MALI_NO_MALI */
 #ifdef CONFIG_MALI_CINSTR_GWT
 	case KBASE_IOCTL_CINSTR_GWT_START:
 		KBASE_HANDLE_IOCTL(KBASE_IOCTL_CINSTR_GWT_START, kbase_gpu_gwt_start, kctx);
@@ -2897,7 +2897,7 @@ static ssize_t js_scheduling_period_show(struct device *dev, struct device_attri
 
 static DEVICE_ATTR_RW(js_scheduling_period);
 
-#ifdef CONFIG_MALI_BIFROST_DEBUG
+#ifdef CONFIG_MALI_DEBUG
 static ssize_t js_softstop_always_store(struct device *dev, struct device_attribute *attr,
 					const char *buf, size_t count)
 {
@@ -2954,10 +2954,10 @@ static ssize_t js_softstop_always_show(struct device *dev, struct device_attribu
  * (see CL t6xx_stress_1 unit-test as an example whereby this feature is used.)
  */
 static DEVICE_ATTR_RW(js_softstop_always);
-#endif /* CONFIG_MALI_BIFROST_DEBUG */
+#endif /* CONFIG_MALI_DEBUG */
 #endif /* !MALI_USE_CSF */
 
-#ifdef CONFIG_MALI_BIFROST_DEBUG
+#ifdef CONFIG_MALI_DEBUG
 typedef void kbasep_debug_command_func(struct kbase_device *);
 
 enum kbasep_debug_command_code {
@@ -3069,7 +3069,7 @@ static ssize_t debug_command_store(struct device *dev, struct device_attribute *
  * Writing to it with one of those commands will issue said command.
  */
 static DEVICE_ATTR_RW(debug_command);
-#endif /* CONFIG_MALI_BIFROST_DEBUG */
+#endif /* CONFIG_MALI_DEBUG */
 
 /**
  * gpuinfo_show - Show callback for the gpuinfo sysfs entry.
@@ -4289,7 +4289,7 @@ void kbase_protected_mode_term(struct kbase_device *kbdev)
 	kfree(kbdev->protected_dev);
 }
 
-#if IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)
+#if IS_ENABLED(CONFIG_MALI_NO_MALI)
 static int kbase_common_reg_map(struct kbase_device *kbdev)
 {
 	return 0;
@@ -4297,7 +4297,7 @@ static int kbase_common_reg_map(struct kbase_device *kbdev)
 static void kbase_common_reg_unmap(struct kbase_device *const kbdev)
 {
 }
-#else /* !IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI) */
+#else /* !IS_ENABLED(CONFIG_MALI_NO_MALI) */
 static int kbase_common_reg_map(struct kbase_device *kbdev)
 {
 	int err = 0;
@@ -4333,7 +4333,7 @@ static void kbase_common_reg_unmap(struct kbase_device *const kbdev)
 		kbdev->reg_size = 0;
 	}
 }
-#endif /* !IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI) */
+#endif /* !IS_ENABLED(CONFIG_MALI_NO_MALI) */
 
 int registers_map(struct kbase_device *const kbdev)
 {
@@ -4909,12 +4909,12 @@ static struct dentry *init_debugfs(struct kbase_device *kbdev)
 
 	kbase_ktrace_debugfs_init(kbdev);
 
-#ifdef CONFIG_MALI_BIFROST_DEVFREQ
+#ifdef CONFIG_MALI_DEVFREQ
 #if IS_ENABLED(CONFIG_DEVFREQ_THERMAL)
 	if (kbdev->devfreq && kbdev->devfreq_cooling)
 		kbase_ipa_debugfs_init(kbdev);
 #endif /* CONFIG_DEVFREQ_THERMAL */
-#endif /* CONFIG_MALI_BIFROST_DEVFREQ */
+#endif /* CONFIG_MALI_DEVFREQ */
 
 #if !MALI_USE_CSF
 	dentry = debugfs_create_file("serialize_jobs", 0644, kbdev->mali_debugfs_directory, kbdev,
@@ -5002,7 +5002,7 @@ static bool kbase_device_supports_coherency_mode(struct kbase_device *kbdev, u32
 	 * on CSF GPUs.
 	 */
 	if (coherency_mode == COHERENCY_ACE) {
-		if (IS_ENABLED(MALI_USE_CSF) && !IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)) {
+		if (IS_ENABLED(MALI_USE_CSF) && !IS_ENABLED(CONFIG_MALI_NO_MALI)) {
 			dev_err(kbdev->dev,
 				"ACE coherency not supported on CSF, wrong DT configuration");
 			return false;
@@ -5595,7 +5595,7 @@ static struct attribute *kbase_scheduling_attrs[] = {
 };
 
 static struct attribute *kbase_attrs[] = {
-#ifdef CONFIG_MALI_BIFROST_DEBUG
+#ifdef CONFIG_MALI_DEBUG
 	&dev_attr_debug_command.attr,
 #if !MALI_USE_CSF
 	&dev_attr_js_softstop_always.attr,
@@ -5719,7 +5719,7 @@ static int kbase_platform_device_remove(struct platform_device *pdev)
 
 void kbase_backend_devfreq_term(struct kbase_device *kbdev)
 {
-#ifdef CONFIG_MALI_BIFROST_DEVFREQ
+#ifdef CONFIG_MALI_DEVFREQ
 	if (kbdev->devfreq)
 		kbase_devfreq_term(kbdev);
 #endif
@@ -5727,13 +5727,13 @@ void kbase_backend_devfreq_term(struct kbase_device *kbdev)
 
 int kbase_backend_devfreq_init(struct kbase_device *kbdev)
 {
-#ifdef CONFIG_MALI_BIFROST_DEVFREQ
+#ifdef CONFIG_MALI_DEVFREQ
 	/* Devfreq uses hardware counters, so must be initialized after it. */
 	int err = kbase_devfreq_init(kbdev);
 
 	if (err)
 		dev_err(kbdev->dev, "Continuing without devfreq\n");
-#endif /* CONFIG_MALI_BIFROST_DEVFREQ */
+#endif /* CONFIG_MALI_DEVFREQ */
 	return 0;
 }
 
@@ -5820,11 +5820,11 @@ static int kbase_device_suspend(struct device *dev)
 		return -EBUSY;
 	}
 
-#ifdef CONFIG_MALI_BIFROST_DVFS
+#ifdef CONFIG_MALI_MIDGARD_DVFS
 	kbase_pm_metrics_stop(kbdev);
 #endif
 
-#ifdef CONFIG_MALI_BIFROST_DEVFREQ
+#ifdef CONFIG_MALI_DEVFREQ
 	dev_dbg(dev, "Callback %s\n", __func__);
 	if (kbdev->devfreq) {
 		kbase_devfreq_enqueue_work(kbdev, DEVFREQ_WORK_SUSPEND);
@@ -5871,11 +5871,11 @@ static int kbase_device_resume(struct device *dev)
 
 	kbase_pm_resume(kbdev);
 
-#ifdef CONFIG_MALI_BIFROST_DVFS
+#ifdef CONFIG_MALI_MIDGARD_DVFS
 	kbase_pm_metrics_start(kbdev);
 #endif
 
-#ifdef CONFIG_MALI_BIFROST_DEVFREQ
+#ifdef CONFIG_MALI_DEVFREQ
 	dev_dbg(dev, "Callback %s\n", __func__);
 	if (kbdev->devfreq)
 		kbase_devfreq_enqueue_work(kbdev, DEVFREQ_WORK_RESUME);
@@ -5917,11 +5917,11 @@ static int kbase_device_runtime_suspend(struct device *dev)
 		return ret;
 #endif
 
-#ifdef CONFIG_MALI_BIFROST_DVFS
+#ifdef CONFIG_MALI_MIDGARD_DVFS
 	kbase_pm_metrics_stop(kbdev);
 #endif
 
-#ifdef CONFIG_MALI_BIFROST_DEVFREQ
+#ifdef CONFIG_MALI_DEVFREQ
 	if (kbdev->devfreq)
 		kbase_devfreq_enqueue_work(kbdev, DEVFREQ_WORK_SUSPEND);
 #endif
@@ -5962,11 +5962,11 @@ static int kbase_device_runtime_resume(struct device *dev)
 		dev_dbg(dev, "runtime resume\n");
 	}
 
-#ifdef CONFIG_MALI_BIFROST_DVFS
+#ifdef CONFIG_MALI_MIDGARD_DVFS
 	kbase_pm_metrics_start(kbdev);
 #endif
 
-#ifdef CONFIG_MALI_BIFROST_DEVFREQ
+#ifdef CONFIG_MALI_DEVFREQ
 	if (kbdev->devfreq)
 		kbase_devfreq_enqueue_work(kbdev, DEVFREQ_WORK_RESUME);
 #endif
@@ -6086,7 +6086,7 @@ MODULE_INFO(import_ns, "DMA_BUF");
 /* Create the trace points (otherwise we just get code to call a tracepoint) */
 #include "mali_linux_trace.h"
 
-#ifdef CONFIG_MALI_BIFROST_GATOR_SUPPORT
+#ifdef CONFIG_MALI_GATOR_SUPPORT
 EXPORT_TRACEPOINT_SYMBOL_GPL(mali_job_slots_event);
 EXPORT_TRACEPOINT_SYMBOL_GPL(mali_pm_status);
 EXPORT_TRACEPOINT_SYMBOL_GPL(mali_page_fault_insert_pages);
@@ -6113,4 +6113,4 @@ void kbase_trace_mali_total_alloc_pages_change(u32 dev_id, long long event)
 {
 	trace_mali_total_alloc_pages_change(dev_id, event);
 }
-#endif /* CONFIG_MALI_BIFROST_GATOR_SUPPORT */
+#endif /* CONFIG_MALI_GATOR_SUPPORT */

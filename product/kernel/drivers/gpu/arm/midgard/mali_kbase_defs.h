@@ -52,9 +52,9 @@
 #include <linux/version_compat_defs.h>
 
 
-#ifdef CONFIG_MALI_BIFROST_DEVFREQ
+#ifdef CONFIG_MALI_DEVFREQ
 #include <linux/devfreq.h>
-#endif /* CONFIG_MALI_BIFROST_DEVFREQ */
+#endif /* CONFIG_MALI_DEVFREQ */
 
 #if IS_ENABLED(CONFIG_DEVFREQ_THERMAL)
 #include <linux/devfreq_cooling.h>
@@ -140,10 +140,8 @@
  * the device node.
  * This is dependent on support for of_property_read_u64_array() in the
  * kernel.
- * While, the number of clocks could be more than regulators,
- * as mentioned in power_control_init().
  */
-#define BASE_MAX_NR_CLOCKS_REGULATORS (4)
+#define BASE_MAX_NR_CLOCKS_REGULATORS (2)
 
 /* Forward declarations */
 struct kbase_context;
@@ -1211,7 +1209,7 @@ struct kbase_device {
 	bool is_runtime_resumed;
 	unsigned long current_nominal_freq;
 	struct monitor_dev_info *mdev_info;
-#ifdef CONFIG_MALI_BIFROST_DEVFREQ
+#ifdef CONFIG_MALI_DEVFREQ
 	struct devfreq_dev_profile devfreq_profile;
 	struct devfreq *devfreq;
 	unsigned long current_freqs[BASE_MAX_NR_CLOCKS_REGULATORS];
@@ -1247,7 +1245,7 @@ struct kbase_device {
 		ktime_t last_sample_time;
 	} ipa;
 #endif /* CONFIG_DEVFREQ_THERMAL */
-#endif /* CONFIG_MALI_BIFROST_DEVFREQ */
+#endif /* CONFIG_MALI_DEVFREQ */
 	unsigned long previous_frequency;
 
 #if !MALI_USE_CSF
@@ -1258,9 +1256,9 @@ struct kbase_device {
 	struct dentry *debugfs_ctx_directory;
 	struct dentry *debugfs_instr_directory;
 
-#ifdef CONFIG_MALI_BIFROST_DEBUG
+#ifdef CONFIG_MALI_DEBUG
 	u64 debugfs_as_read_bitmap;
-#endif /* CONFIG_MALI_BIFROST_DEBUG */
+#endif /* CONFIG_MALI_DEBUG */
 
 #if !MALI_USE_CSF
 	wait_queue_head_t job_fault_wq;

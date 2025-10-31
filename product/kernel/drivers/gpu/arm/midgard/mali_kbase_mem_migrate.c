@@ -621,7 +621,6 @@ static void kbase_page_putback(struct page *p)
 	    status_free_pt_isolated_in_progress) {
 		__ClearPageMovable(p);
 		page_md->status = PAGE_MOVABLE_CLEAR(page_md->status);
-
 		if (!WARN_ON_ONCE(!kbdev)) {
 			struct kbase_mem_migrate *mem_migrate = &kbdev->mem_migrate;
 

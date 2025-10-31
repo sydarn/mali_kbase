@@ -29,7 +29,7 @@
 #include <hw_access/mali_kbase_hw_access.h>
 #include "mali_kbase_csf_firmware.h"
 #include "mali_kbase_csf_event.h"
-#include <uapi/gpu/arm/bifrost/csf/mali_kbase_csf_errors_dumpfault.h>
+#include <uapi/gpu/arm/midgard/csf/mali_kbase_csf_errors_dumpfault.h>
 #include "mali_kbase_csf_fw_io.h"
 
 #include <linux/version_compat_defs.h>

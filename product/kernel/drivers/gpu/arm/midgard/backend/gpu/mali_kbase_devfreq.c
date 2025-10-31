@@ -6,7 +6,7 @@
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
- * of such GNU licence.
+ * of such GNU license.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -296,7 +296,7 @@ static void kbasep_devfreq_read_suspend_clock(struct kbase_device *kbdev, struct
 	 * for clk driver. If 'opp-hz-real' does not exist,
 	 * read from 'opp-hz'.
 	 */
-	if (IS_ENABLED(CONFIG_MALI_BIFROST_DEVFREQ))
+	if (IS_ENABLED(CONFIG_MALI_DEVFREQ))
 		err = of_property_read_u64(node, "opp-hz", &freq);
 	else {
 		if (of_property_read_u64(node, "opp-hz-real", &freq))
@@ -358,7 +358,6 @@ static int kbase_devfreq_init_core_mask_table(struct kbase_device *kbdev)
 			continue;
 		}
 
-
 #if BASE_MAX_NR_CLOCKS_REGULATORS > 1
 		err = of_property_read_u64_array(node, "opp-hz-real", real_freqs, kbdev->nr_clocks);
 #else
@@ -383,7 +382,6 @@ static int kbase_devfreq_init_core_mask_table(struct kbase_device *kbdev)
 		if (of_property_read_u64(node, "opp-core-mask", &core_mask))
 			core_mask = shader_present;
 		if (core_mask != shader_present && corestack_driver_control) {
-
 			dev_warn(
 				kbdev->dev,
 				"Ignoring OPP %llu - Dynamic Core Scaling not supported on this GPU",

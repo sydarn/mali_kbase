@@ -150,7 +150,7 @@ void kbase_timeline_term(struct kbase_timeline *timeline)
 	vfree(timeline);
 }
 
-#ifdef CONFIG_MALI_BIFROST_DEVFREQ
+#ifdef CONFIG_MALI_DEVFREQ
 static void kbase_tlstream_current_devfreq_target(struct kbase_device *kbdev)
 {
 	struct devfreq *devfreq = kbdev->devfreq;
@@ -167,7 +167,7 @@ static void kbase_tlstream_current_devfreq_target(struct kbase_device *kbdev)
 		mutex_unlock(&devfreq->lock);
 	}
 }
-#endif /* CONFIG_MALI_BIFROST_DEVFREQ */
+#endif /* CONFIG_MALI_DEVFREQ */
 
 int kbase_timeline_acquire(struct kbase_device *kbdev, u32 flags)
 {
@@ -220,13 +220,13 @@ int kbase_timeline_acquire(struct kbase_device *kbdev, u32 flags)
 	 */
 	kbase_create_timeline_objects(kbdev);
 
-#ifdef CONFIG_MALI_BIFROST_DEVFREQ
+#ifdef CONFIG_MALI_DEVFREQ
 	/* Devfreq target tracepoints are only fired when the target
 	 * changes, so we won't know the current target unless we
 	 * send it now.
 	 */
 	kbase_tlstream_current_devfreq_target(kbdev);
-#endif /* CONFIG_MALI_BIFROST_DEVFREQ */
+#endif /* CONFIG_MALI_DEVFREQ */
 
 	/* Start the autoflush timer.
 	 * We must do this after creating timeline objects to ensure we

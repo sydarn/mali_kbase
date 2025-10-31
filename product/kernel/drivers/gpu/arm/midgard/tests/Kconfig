@@ -20,8 +20,8 @@
 
 menuconfig MALI_KUTF
 	bool "Build Mali Kernel Unit Test Framework modules"
-	depends on MALI_BIFROST && MALI_BIFROST_DEBUG
-	default y if MALI_BIFROST_DEBUG
+	depends on MALI_MIDGARD && MALI_DEBUG
+	default y if MALI_DEBUG
 	help
 	  This option will build the Mali testing framework modules.
 
@@ -66,5 +66,5 @@ config MALI_KUTF_MGM_INTEGRATION_TEST
 
 
 
-comment "Enable MALI_BIFROST_DEBUG for KUTF modules support"
-	depends on MALI_BIFROST && !MALI_BIFROST_DEBUG && MALI_KUTF
+comment "Enable MALI_DEBUG for KUTF modules support"
+	depends on MALI_MIDGARD && !MALI_DEBUG && MALI_KUTF

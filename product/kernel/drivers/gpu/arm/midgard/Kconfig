@@ -18,22 +18,24 @@
 #
 #
 
-menuconfig MALI_BIFROST
-	tristate "Mali Bifrost series support"
+menuconfig MALI_MIDGARD
+	tristate "Mali Midgard series support"
 	select GPU_TRACEPOINTS if ANDROID
 	select DMA_SHARED_BUFFER
+	select PM_DEVFREQ
+	select DEVFREQ_THERMAL
 	select FW_LOADER
 	default n
 	help
-	  Enable this option to build support for a ARM Mali Bifrost GPU.
+	  Enable this option to build support for a ARM Mali Midgard GPU.
 
 	  To compile this driver as a module, choose M here:
 	  this will generate a single module, called mali_kbase.
 
-if MALI_BIFROST
+if MALI_MIDGARD
 
 config MALI_PLATFORM_NAME
-	depends on MALI_BIFROST
+	depends on MALI_MIDGARD
 	string "Platform name"
 	default "devicetree"
 	help
@@ -43,18 +45,18 @@ config MALI_PLATFORM_NAME
 
 choice
 	prompt "Mali HW backend"
-	depends on MALI_BIFROST
+	depends on MALI_MIDGARD
 	default MALI_REAL_HW
 
 config MALI_REAL_HW
 	bool "Enable build of Mali kernel driver for real HW"
-	depends on MALI_BIFROST
+	depends on MALI_MIDGARD
 	help
 	  This is the default HW backend.
 
-config MALI_BIFROST_NO_MALI
+config MALI_NO_MALI
 	bool "Enable build of Mali kernel driver for No Mali"
-	depends on MALI_BIFROST && MALI_BIFROST_EXPERT
+	depends on MALI_MIDGARD && MALI_EXPERT
 	help
 	  This can be used to test the driver in a simulated environment
 	  whereby the hardware is not physically present. If the hardware is physically
@@ -67,31 +69,32 @@ endchoice
 
 config MALI_NO_MALI_DEFAULT_GPU
 	string "Default GPU for No Mali"
-	depends on MALI_BIFROST_NO_MALI
+	depends on MALI_NO_MALI
 	default "tMIx"
 	help
 	  This option sets the default GPU to identify as for No Mali builds.
 
 config MALI_IS_FPGA
 	bool "Enable build of Mali kernel driver for FPGA"
-	depends on MALI_BIFROST
+	depends on MALI_MIDGARD
 	default n
 	help
 	  This is the default HW backend.
 
 menu "Platform specific options"
-source "$(MALI_KCONFIG_EXT_PREFIX)drivers/gpu/arm/bifrost/platform/Kconfig"
+source "$(MALI_KCONFIG_EXT_PREFIX)drivers/gpu/arm/midgard/platform/Kconfig"
 endmenu
 
 config MALI_CSF_SUPPORT
 	bool "Enable Mali CSF based GPU support"
+	depends on MALI_MIDGARD
 	default n
 	help
 	  Enables support for CSF based GPUs.
 
-config MALI_BIFROST_DEVFREQ
+config MALI_DEVFREQ
 	bool "Enable devfreq support for Mali"
-	depends on MALI_BIFROST && PM_DEVFREQ
+	depends on MALI_MIDGARD && PM_DEVFREQ
 	select DEVFREQ_GOV_SIMPLE_ONDEMAND
 	default y
 	help
@@ -101,25 +104,25 @@ config MALI_BIFROST_DEVFREQ
 	  governor, the frequency of Mali will be dynamically selected from the
 	  available OPPs.
 
-config MALI_BIFROST_DVFS
+config MALI_MIDGARD_DVFS
 	bool "Enable legacy DVFS"
-	depends on MALI_BIFROST && !MALI_BIFROST_DEVFREQ
+	depends on MALI_MIDGARD && !MALI_DEVFREQ
 	default n
 	help
 	  Choose this option to enable legacy DVFS in the Mali Midgard DDK.
 
-config MALI_BIFROST_GATOR_SUPPORT
+config MALI_GATOR_SUPPORT
 	bool "Enable Streamline tracing support"
-	depends on MALI_BIFROST
+	depends on MALI_MIDGARD
 	default y
 	help
 	  Enables kbase tracing used by the Arm Streamline Performance Analyzer.
 	  The tracepoints are used to derive GPU activity charts in Streamline.
 
-config MALI_BIFROST_ENABLE_TRACE
+config MALI_MIDGARD_ENABLE_TRACE
 	bool "Enable kbase tracing"
-	depends on MALI_BIFROST
-	default y if MALI_BIFROST_DEBUG
+	depends on MALI_MIDGARD
+	default y if MALI_DEBUG
 	default n
 	help
 	  Enables tracing in kbase. Trace log available through
@@ -127,7 +130,7 @@ config MALI_BIFROST_ENABLE_TRACE
 
 config MALI_ARBITER_SUPPORT
 	bool "Enable arbiter support for Mali"
-	depends on MALI_BIFROST
+	depends on MALI_MIDGARD
 	default n
 	help
 	  Enable support for the arbiter interface in the driver.
@@ -138,7 +141,7 @@ config MALI_ARBITER_SUPPORT
 
 config MALI_DMA_BUF_MAP_ON_DEMAND
 	bool "Enable map imported dma-bufs on demand"
-	depends on MALI_BIFROST
+	depends on MALI_MIDGARD
 	default n
 	help
 	  This option will cause kbase to set up the GPU mapping of imported
@@ -149,7 +152,7 @@ config MALI_DMA_BUF_MAP_ON_DEMAND
 
 config MALI_DMA_BUF_LEGACY_COMPAT
 	bool "Enable legacy compatibility cache flush on dma-buf map"
-	depends on MALI_BIFROST && !MALI_DMA_BUF_MAP_ON_DEMAND
+	depends on MALI_MIDGARD && !MALI_DMA_BUF_MAP_ON_DEMAND
 	default n
 	help
 	  This option enables compatibility with legacy dma-buf mapping
@@ -162,23 +165,23 @@ config MALI_DMA_BUF_LEGACY_COMPAT
 	  UK 11.18 or older. For later UK versions it is not possible.
 
 config MALI_CORESIGHT
-	depends on MALI_BIFROST && MALI_CSF_SUPPORT && !MALI_BIFROST_NO_MALI
+	depends on MALI_MIDGARD && MALI_CSF_SUPPORT && !MALI_NO_MALI
 	bool "Enable Kbase CoreSight tracing support"
 	default n
 
-menuconfig MALI_BIFROST_EXPERT
-	depends on MALI_BIFROST
+menuconfig MALI_EXPERT
+	depends on MALI_MIDGARD
 	bool "Enable Expert Settings"
 	default n
 	help
 	  Enabling this option and modifying the default settings may produce
 	  a driver with performance or other limitations.
 
-if MALI_BIFROST_EXPERT
+if MALI_EXPERT
 
 config LARGE_PAGE_SUPPORT
 	bool "Support for 2MB page allocations"
-	depends on MALI_BIFROST && MALI_BIFROST_EXPERT
+	depends on MALI_MIDGARD && MALI_EXPERT
 	default y
 	help
 	 Rather than allocating all GPU memory page-by-page, allow the system
@@ -193,7 +196,7 @@ config LARGE_PAGE_SUPPORT
 
 config PAGE_MIGRATION_SUPPORT
 	bool "Enable support for page migration"
-	depends on MALI_BIFROST && MALI_BIFROST_EXPERT
+	depends on MALI_MIDGARD && MALI_EXPERT
 	default y
 	default n if ANDROID
 	help
@@ -209,7 +212,7 @@ config PAGE_MIGRATION_SUPPORT
 
 config MALI_CORESTACK
 	bool "Enable support of GPU core stack power control"
-	depends on MALI_BIFROST && MALI_BIFROST_EXPERT
+	depends on MALI_MIDGARD && MALI_EXPERT
 	default n
 	help
 	  Enabling this feature on supported GPUs will let the driver powering
@@ -221,19 +224,19 @@ config MALI_CORESTACK
 	  If unsure, say N.
 
 comment "Debug options"
-	depends on MALI_BIFROST && MALI_BIFROST_EXPERT
+	depends on MALI_MIDGARD && MALI_EXPERT
 
-config MALI_BIFROST_DEBUG
+config MALI_DEBUG
 	bool "Enable debug build"
-	depends on MALI_BIFROST && MALI_BIFROST_EXPERT
+	depends on MALI_MIDGARD && MALI_EXPERT
 	default n
 	help
 	  Select this option for increased checking and reporting of errors.
 
-config MALI_BIFROST_FENCE_DEBUG
+config MALI_FENCE_DEBUG
 	bool "Enable debug sync fence usage"
-	depends on MALI_BIFROST && MALI_BIFROST_EXPERT && SYNC_FILE
-	default y if MALI_BIFROST_DEBUG
+	depends on MALI_MIDGARD && MALI_EXPERT && SYNC_FILE
+	default y if MALI_DEBUG
 	help
 	  Select this option to enable additional checking and reporting on the
 	  use of sync fences in the Mali driver.
@@ -247,10 +250,10 @@ config MALI_BIFROST_FENCE_DEBUG
 	  The timeout can be changed at runtime through the js_soft_timeout
 	  device attribute, where the timeout is specified in milliseconds.
 
-config MALI_BIFROST_SYSTEM_TRACE
+config MALI_SYSTEM_TRACE
 	bool "Enable system event tracing support"
-	depends on MALI_BIFROST && MALI_BIFROST_EXPERT
-	default y if MALI_BIFROST_DEBUG
+	depends on MALI_MIDGARD && MALI_EXPERT
+	default y if MALI_DEBUG
 	default n
 	help
 	  Choose this option to enable system trace events for each
@@ -259,22 +262,22 @@ config MALI_BIFROST_SYSTEM_TRACE
 	  you are doing.
 
 comment "Instrumentation options"
-	depends on MALI_BIFROST && MALI_BIFROST_EXPERT
+	depends on MALI_MIDGARD && MALI_EXPERT
 
 choice
 	prompt "Select Performance counters set"
 	default MALI_PRFCNT_SET_PRIMARY
-	depends on MALI_BIFROST && MALI_BIFROST_EXPERT
+	depends on MALI_MIDGARD && MALI_EXPERT
 
 config MALI_PRFCNT_SET_PRIMARY
 	bool "Primary"
-	depends on MALI_BIFROST && MALI_BIFROST_EXPERT
+	depends on MALI_MIDGARD && MALI_EXPERT
 	help
 	  Select this option to use primary set of performance counters.
 
-config MALI_BIFROST_PRFCNT_SET_SECONDARY
+config MALI_PRFCNT_SET_SECONDARY
 	bool "Secondary"
-	depends on MALI_BIFROST && MALI_BIFROST_EXPERT
+	depends on MALI_MIDGARD && MALI_EXPERT
 	help
 	  Select this option to use secondary set of performance counters. Kernel
 	  features that depend on an access to the primary set of counters may
@@ -286,7 +289,7 @@ config MALI_BIFROST_PRFCNT_SET_SECONDARY
 
 config MALI_PRFCNT_SET_TERTIARY
 	bool "Tertiary"
-	depends on MALI_BIFROST && MALI_BIFROST_EXPERT
+	depends on MALI_MIDGARD && MALI_EXPERT
 	help
 	  Select this option to use tertiary set of performance counters. Kernel
 	  features that depend on an access to the primary set of counters may
@@ -300,7 +303,7 @@ endchoice
 
 config MALI_PRFCNT_SET_SELECT_VIA_DEBUG_FS
 	bool "Enable runtime selection of performance counters set via debugfs"
-	depends on MALI_BIFROST && MALI_BIFROST_EXPERT && DEBUG_FS && !MALI_CSF_SUPPORT
+	depends on MALI_MIDGARD && MALI_EXPERT && DEBUG_FS && !MALI_CSF_SUPPORT
 	default n
 	help
 	  Select this option to make the secondary set of performance counters
@@ -323,7 +326,7 @@ config MALI_PRFCNT_SET_SELECT_VIA_DEBUG_FS
 
 config MALI_JOB_DUMP
 	bool "Enable system level support needed for job dumping"
-	depends on MALI_BIFROST && MALI_BIFROST_EXPERT
+	depends on MALI_MIDGARD && MALI_EXPERT
 	default n
 	help
 	  Choose this option to enable system level support needed for
@@ -332,11 +335,11 @@ config MALI_JOB_DUMP
 	  you are doing.
 
 comment "Workarounds"
-	depends on MALI_BIFROST && MALI_BIFROST_EXPERT
+	depends on MALI_MIDGARD && MALI_EXPERT
 
 config MALI_PWRSOFT_765
 	bool "Enable workaround for PWRSOFT-765"
-	depends on MALI_BIFROST && MALI_BIFROST_EXPERT
+	depends on MALI_MIDGARD && MALI_EXPERT
 	default n
 	help
 	  PWRSOFT-765 fixes devfreq cooling devices issues. The fix was merged
@@ -348,7 +351,7 @@ config MALI_PWRSOFT_765
 
 config MALI_HW_ERRATA_1485982_NOT_AFFECTED
 	bool "Disable workaround for KBASE_HW_ISSUE_GPU2017_1336"
-	depends on MALI_BIFROST && MALI_BIFROST_EXPERT
+	depends on MALI_MIDGARD && MALI_EXPERT
 	default n
 	help
 	  This option disables the default workaround for GPU2017-1336. The
@@ -360,7 +363,7 @@ config MALI_HW_ERRATA_1485982_NOT_AFFECTED
 
 config MALI_HW_ERRATA_1485982_USE_CLOCK_ALTERNATIVE
 	bool "Use alternative workaround for KBASE_HW_ISSUE_GPU2017_1336"
-	depends on MALI_BIFROST && MALI_BIFROST_EXPERT && !MALI_HW_ERRATA_1485982_NOT_AFFECTED
+	depends on MALI_MIDGARD && MALI_EXPERT && !MALI_HW_ERRATA_1485982_NOT_AFFECTED
 	default n
 	help
 	  This option uses an alternative workaround for GPU2017-1336. Lowering
@@ -373,7 +376,7 @@ endif
 
 config MALI_ARBITRATION
 	tristate "Enable Virtualization reference code"
-	depends on MALI_BIFROST
+	depends on MALI_MIDGARD
 	default n
 	help
 	  Enables the build of several reference modules used in the reference
@@ -382,18 +385,14 @@ config MALI_ARBITRATION
 
 config MALI_TRACE_POWER_GPU_WORK_PERIOD
 	bool "Enable per-application GPU metrics tracepoints"
-	depends on MALI_BIFROST
+	depends on MALI_MIDGARD
 	default y
 	help
 	  This option enables per-application GPU metrics tracepoints.
 
 	  If unsure, say N.
 
-config MALI_CSF_INCLUDE_FW
-	depends on MALI_BIFROST && MALI_CSF_SUPPORT
-	bool "Whether to include CSF firmware into driver"
-	default y
 
-# source "$(MALI_KCONFIG_EXT_PREFIX)drivers/gpu/arm/bifrost/tests/Kconfig"
+source "$(MALI_KCONFIG_EXT_PREFIX)drivers/gpu/arm/midgard/tests/Kconfig"
 
 endif

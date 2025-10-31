@@ -31,7 +31,7 @@
 #include <mali_kbase_hwaccess_gpuprops.h>
 
 #include <mali_kbase_config_defaults.h>
-#include <uapi/gpu/arm/bifrost/mali_kbase_ioctl.h>
+#include <uapi/gpu/arm/midgard/mali_kbase_ioctl.h>
 #include <linux/clk.h>
 #include <backend/gpu/mali_kbase_pm_internal.h>
 #include <linux/of_platform.h>
@@ -480,7 +480,7 @@ int kbase_gpuprops_update_l2_features(struct kbase_device *kbdev)
 			const bool enable = regdump->l2_config &
 					    L2_CONFIG_L2_SLICE_HASH_ENABLE_MASK;
 
-#if !IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)
+#if !IS_ENABLED(CONFIG_MALI_NO_MALI)
 			if (!enable && kbdev->l2_hash_values_override) {
 					dev_err(kbdev->dev,
 						"Failed to use requested ASN_HASH, fallback to default");

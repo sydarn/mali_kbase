@@ -31,7 +31,7 @@
 #include <backend/gpu/mali_kbase_pm_internal.h>
 #include <linux/export.h>
 #include <csf/mali_kbase_csf_registers.h>
-#include <uapi/gpu/arm/bifrost/mali_base_kernel.h>
+#include <uapi/gpu/arm/midgard/mali_base_kernel.h>
 #include <mali_kbase_hwaccess_time.h>
 #include "mali_kbase_csf_tiler_heap_reclaim.h"
 #include "mali_kbase_csf_mcu_shared_reg.h"
@@ -335,11 +335,11 @@ static void emit_gpu_metrics_to_frontend(struct kbase_device *kbdev)
 	struct kbase_csf_scheduler *scheduler = &kbdev->csf.scheduler;
 	u64 ts;
 
-#ifdef CONFIG_MALI_BIFROST_DEBUG
+#ifdef CONFIG_MALI_DEBUG
 	WARN_ON_ONCE(!in_serving_softirq());
 #endif
 
-#if IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)
+#if IS_ENABLED(CONFIG_MALI_NO_MALI)
 	return;
 #endif
 
@@ -367,7 +367,7 @@ static void emit_gpu_metrics_to_frontend_for_off_slot_group(struct kbase_queue_g
 	lockdep_assert_held(&scheduler->lock);
 	lockdep_assert_held(&scheduler->gpu_metrics_lock);
 
-#if IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)
+#if IS_ENABLED(CONFIG_MALI_NO_MALI)
 	return;
 #endif
 
@@ -1674,7 +1674,7 @@ int kbase_csf_scheduler_queue_stop(struct kbase_queue *queue)
 
 static void update_hw_active(struct kbase_queue *queue, bool active)
 {
-#if IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)
+#if IS_ENABLED(CONFIG_MALI_NO_MALI)
 	if (queue && queue->enabled) {
 		u64 *output_addr = queue->user_io_addr + PAGE_SIZE / sizeof(u64);
 
@@ -2655,10 +2655,10 @@ static void save_csg_slot(struct kbase_queue_group *group)
 		bool sync_wait = false;
 		bool idle = kbase_csf_firmware_csg_output(ginfo, CSG_STATUS_STATE) &
 			    CSG_STATUS_STATE_IDLE_MASK;
-#if IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)
+#if IS_ENABLED(CONFIG_MALI_NO_MALI)
 		for (i = 0; i < max_streams; i++)
 			update_hw_active(group->bound_queues[i], false);
-#endif /* CONFIG_MALI_BIFROST_NO_MALI */
+#endif /* CONFIG_MALI_NO_MALI */
 		for (i = 0; idle && i < max_streams; i++) {
 			struct kbase_queue *const queue = group->bound_queues[i];
 
@@ -4540,7 +4540,7 @@ static void scheduler_update_idle_slots_status(struct kbase_device *kbdev,
 		idle_flag = test_bit(i, scheduler->csg_slots_idle_mask);
 		if (idle_flag || group->reevaluate_idle_status) {
 			if (idle_flag) {
-#ifdef CONFIG_MALI_BIFROST_DEBUG
+#ifdef CONFIG_MALI_DEBUG
 				if (!bitmap_empty(group->protm_pending_bitmap, ginfo->stream_num)) {
 					dev_warn(
 						kbdev->dev,
@@ -5941,7 +5941,7 @@ static void firmware_aliveness_monitor(struct work_struct *work)
 
 	mutex_lock(&kbdev->csf.scheduler.lock);
 
-#ifdef CONFIG_MALI_BIFROST_DEBUG
+#ifdef CONFIG_MALI_DEBUG
 	if (fw_debug) {
 		/* ping requests cause distraction in firmware debugging */
 		goto exit;
@@ -6788,7 +6788,7 @@ int kbase_csf_scheduler_init(struct kbase_device *kbdev)
 	}
 
 #if IS_ENABLED(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD)
-#if !IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)
+#if !IS_ENABLED(CONFIG_MALI_NO_MALI)
 	scheduler->gpu_metrics_tb =
 		kbase_csf_firmware_get_trace_buffer(kbdev, KBASE_CSFFW_GPU_METRICS_BUF_NAME);
 	if (!scheduler->gpu_metrics_tb) {
@@ -6803,7 +6803,7 @@ int kbase_csf_scheduler_init(struct kbase_device *kbdev)
 		dev_err(kbdev->dev, "Failed to get the handler of gpu_metrics from trace buffer");
 		return -ENOENT;
 	}
-#endif /* !CONFIG_MALI_BIFROST_NO_MALI */
+#endif /* !CONFIG_MALI_NO_MALI */
 
 	spin_lock_init(&scheduler->gpu_metrics_lock);
 	hrtimer_init(&scheduler->gpu_metrics_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_SOFT);

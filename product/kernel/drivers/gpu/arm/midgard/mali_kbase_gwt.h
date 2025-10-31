@@ -22,7 +22,7 @@
 #if !defined(_KBASE_GWT_H)
 #define _KBASE_GWT_H
 
-#include <uapi/gpu/arm/bifrost/mali_kbase_ioctl.h>
+#include <uapi/gpu/arm/midgard/mali_kbase_ioctl.h>
 
 struct kbase_context;
 

@@ -156,7 +156,7 @@ static int kbasep_hwcnt_backend_jm_gpu_info_init(struct kbase_device *kbdev,
 	if (!kbdev || !info)
 		return -EINVAL;
 
-#if IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)
+#if IS_ENABLED(CONFIG_MALI_NO_MALI)
 	l2_count = KBASE_DUMMY_MODEL_MAX_MEMSYS_BLOCKS;
 	core_mask = (1ull << KBASE_DUMMY_MODEL_MAX_SHADER_CORES) - 1;
 #else
@@ -387,12 +387,12 @@ kbasep_hwcnt_backend_jm_dump_enable_nolock(struct kbase_hwcnt_backend *backend,
 		.fe_bm = phys_enable_map.fe_bm, .shader_bm = phys_enable_map.shader_bm,
 		.tiler_bm = phys_enable_map.tiler_bm, .mmu_l2_bm = phys_enable_map.mmu_l2_bm,
 		.counter_set = phys_counter_set,
-#if IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)
+#if IS_ENABLED(CONFIG_MALI_NO_MALI)
 		/* The dummy model needs the CPU mapping. */
 			.dump_buffer = (uintptr_t)backend_jm->cpu_dump_va,
 #else
 		.dump_buffer = backend_jm->gpu_dump_va,
-#endif /* CONFIG_MALI_BIFROST_NO_MALI */
+#endif /* CONFIG_MALI_NO_MALI */
 		.dump_buffer_bytes = backend_jm->info->dump_bytes,
 	};
 
@@ -615,10 +615,10 @@ static int kbasep_hwcnt_backend_jm_dump_get(struct kbase_hwcnt_backend *backend,
 {
 	struct kbase_hwcnt_backend_jm *backend_jm = (struct kbase_hwcnt_backend_jm *)backend;
 	size_t clk;
-#if IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)
+#if IS_ENABLED(CONFIG_MALI_NO_MALI)
 	struct kbase_device *kbdev;
 	unsigned long flags;
-#endif /* CONFIG_MALI_BIFROST_NO_MALI */
+#endif /* CONFIG_MALI_NO_MALI */
 	int errcode;
 
 	if (!backend_jm || !dst || !dst_enable_map ||
@@ -643,7 +643,7 @@ static int kbasep_hwcnt_backend_jm_dump_get(struct kbase_hwcnt_backend *backend,
 		dst->clk_cnt_buf[clk] += backend_jm->cycle_count_elapsed[clk];
 	}
 
-#if IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)
+#if IS_ENABLED(CONFIG_MALI_NO_MALI)
 	kbdev = backend_jm->kctx->kbdev;
 
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
@@ -655,7 +655,7 @@ static int kbasep_hwcnt_backend_jm_dump_get(struct kbase_hwcnt_backend *backend,
 
 	if (errcode)
 		return errcode;
-#endif /* CONFIG_MALI_BIFROST_NO_MALI */
+#endif /* CONFIG_MALI_NO_MALI */
 	errcode = kbase_hwcnt_jm_dump_get(dst, backend_jm->to_user_buf, dst_enable_map,
 					  backend_jm->pm_core_mask, backend_jm->debug_core_mask,
 					  backend_jm->max_l2_slices, &backend_jm->curr_config,
@@ -896,7 +896,7 @@ static int kbasep_hwcnt_backend_jm_info_create(struct kbase_device *kbdev,
 
 	info->kbdev = kbdev;
 
-#ifdef CONFIG_MALI_BIFROST_PRFCNT_SET_SECONDARY
+#if defined(CONFIG_MALI_PRFCNT_SET_SECONDARY)
 	info->counter_set = KBASE_HWCNT_SET_SECONDARY;
 #elif defined(CONFIG_MALI_PRFCNT_SET_TERTIARY)
 	info->counter_set = KBASE_HWCNT_SET_TERTIARY;

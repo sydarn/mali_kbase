@@ -39,12 +39,12 @@ static inline bool timer_callback_should_run(struct kbase_device *kbdev, int nr_
 {
 	lockdep_assert_held(&kbdev->js_data.runpool_mutex);
 
-#ifdef CONFIG_MALI_BIFROST_DEBUG
+#ifdef CONFIG_MALI_DEBUG
 	if (kbdev->js_data.softstop_always) {
 		/* Debug support for allowing soft-stop on a single context */
 		return true;
 	}
-#endif /* CONFIG_MALI_BIFROST_DEBUG */
+#endif /* CONFIG_MALI_DEBUG */
 
 	if (kbase_hw_has_issue(kbdev, KBASE_HW_ISSUE_9435)) {
 		/* Timeouts would have to be 4x longer (due to micro-

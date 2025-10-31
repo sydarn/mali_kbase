@@ -3537,7 +3537,7 @@ static void kbase_pm_request_gpu_cycle_counter_do_request(struct kbase_device *k
 		/* This might happen after GPU reset.
 		 * Then counter needs to be kicked.
 		 */
-#if !IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI) && !MALI_USE_CSF
+#if !IS_ENABLED(CONFIG_MALI_NO_MALI) && !MALI_USE_CSF
 		if (!(kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_STATUS)) &
 		      GPU_STATUS_CYCLE_COUNT_ACTIVE)) {
 			kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_COMMAND),

@@ -27,7 +27,7 @@
 #include <mali_kbase_sync.h>
 #endif
 #include <linux/dma-mapping.h>
-#include <uapi/gpu/arm/bifrost/mali_base_kernel.h>
+#include <uapi/gpu/arm/midgard/mali_base_kernel.h>
 #include <mali_kbase_hwaccess_time.h>
 #include <mali_kbase_kinstr_jm.h>
 #include <mali_kbase_mem_linux.h>
@@ -250,7 +250,7 @@ void kbasep_complete_triggered_soft_events(struct kbase_context *kctx, u64 evt)
 				cancel_timer = 0;
 			}
 			break;
-#ifdef CONFIG_MALI_BIFROST_FENCE_DEBUG
+#ifdef CONFIG_MALI_FENCE_DEBUG
 		case BASE_JD_REQ_SOFT_FENCE_WAIT:
 			/* Keep the timer running if fence debug is enabled and
 			 * there are waiting fence jobs.
@@ -266,7 +266,7 @@ void kbasep_complete_triggered_soft_events(struct kbase_context *kctx, u64 evt)
 	spin_unlock_irqrestore(&kctx->waiting_soft_jobs_lock, lflags);
 }
 
-#ifdef CONFIG_MALI_BIFROST_FENCE_DEBUG
+#ifdef CONFIG_MALI_FENCE_DEBUG
 static void kbase_fence_debug_check_atom(struct kbase_jd_atom *katom)
 {
 	struct kbase_context *kctx = katom->kctx;
@@ -362,7 +362,7 @@ static void kbase_fence_debug_timeout(struct kbase_jd_atom *katom)
 		queue_work(kctx->jctx.job_done_wq, &work->work);
 	}
 }
-#endif /* CONFIG_MALI_BIFROST_FENCE_DEBUG */
+#endif /* CONFIG_MALI_FENCE_DEBUG */
 
 void kbasep_soft_job_timeout_worker(struct timer_list *timer)
 {
@@ -394,7 +394,7 @@ void kbasep_soft_job_timeout_worker(struct timer_list *timer)
 			INIT_WORK(&katom->work, kbasep_soft_event_complete_job);
 			queue_work(kctx->jctx.job_done_wq, &katom->work);
 			break;
-#ifdef CONFIG_MALI_BIFROST_FENCE_DEBUG
+#ifdef CONFIG_MALI_FENCE_DEBUG
 		case BASE_JD_REQ_SOFT_FENCE_WAIT:
 			kbase_fence_debug_timeout(katom);
 			break;
@@ -1477,7 +1477,7 @@ int kbase_process_soft_job(struct kbase_jd_atom *katom)
 		ret = kbase_sync_fence_in_wait(katom);
 
 		if (ret == 1) {
-#ifdef CONFIG_MALI_BIFROST_FENCE_DEBUG
+#ifdef CONFIG_MALI_FENCE_DEBUG
 			kbasep_add_waiting_with_timeout(katom);
 #else
 			kbasep_add_waiting_soft_job(katom);

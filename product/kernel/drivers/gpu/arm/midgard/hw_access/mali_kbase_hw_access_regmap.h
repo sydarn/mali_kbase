@@ -509,9 +509,9 @@
 #define IDVS_GROUP_MAX_SIZE (0x3F)
 
 /* Include POWER_CHANGED_SINGLE in debug builds for use in irq latency test. */
-#ifdef CONFIG_MALI_BIFROST_DEBUG
+#ifdef CONFIG_MALI_DEBUG
 #undef GPU_IRQ_REG_ALL
 #define GPU_IRQ_REG_ALL (GPU_IRQ_REG_COMMON | POWER_CHANGED_SINGLE)
-#endif /* CONFIG_MALI_BIFROST_DEBUG */
+#endif /* CONFIG_MALI_DEBUG */
 
 #endif /* _MALI_KBASE_HW_ACCESS_REGMAP_H_ */

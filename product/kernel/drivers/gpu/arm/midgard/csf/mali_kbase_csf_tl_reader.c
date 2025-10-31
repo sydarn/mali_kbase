@@ -365,8 +365,8 @@ int kbase_csf_tl_reader_start(struct kbase_csf_tl_reader *self, struct kbase_dev
 
 	if (tl_reader_init_late(self, kbdev)) {
 		spin_unlock_irqrestore(&self->read_lock, flags);
-#if IS_ENABLED(CONFIG_MALI_BIFROST_NO_MALI)
-		dev_warn(kbdev->dev, "CSFFW timeline is not available for MALI_BIFROST_NO_MALI builds!");
+#if IS_ENABLED(CONFIG_MALI_NO_MALI)
+		dev_warn(kbdev->dev, "CSFFW timeline is not available for MALI_NO_MALI builds!");
 		return 0;
 #else
 		return -EINVAL;
