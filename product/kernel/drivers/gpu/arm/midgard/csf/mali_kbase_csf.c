@@ -219,15 +219,10 @@ static int kernel_map_user_io_pages(struct kbase_context *kctx, struct kbase_que
 
 	user_io_addr = vmap(page_list, ARRAY_SIZE(page_list), VM_MAP, cpu_map_prot);
 
-	if (!user_io_addr) {
-		dev_err(kctx->kbdev->dev,
-			"%s(): user_io_addr is NULL, queue: %p",
-			__func__,
-			queue);
+	if (!user_io_addr)
 		ret = -ENOMEM;
-	} else {
+	else
 		atomic_add(ARRAY_SIZE(page_list), &kctx->permanent_mapped_pages);
-	}
 
 	kbase_csf_scheduler_spin_lock(kctx->kbdev, &flags);
 	queue->user_io_addr = user_io_addr;
@@ -1913,22 +1908,17 @@ static int handle_oom_event(struct kbase_queue_group *const group,
 	u32 pending_frag_count;
 	u64 new_chunk_ptr;
 	int err;
-	bool frag_end_err = false;
 
 	if ((frag_end > vt_end) || (vt_end >= vt_start)) {
-		frag_end_err = true;
-		dev_dbg(
+		dev_warn(
 			kctx->kbdev->dev,
 			"Invalid Heap statistics provided by firmware: vt_start %d, vt_end %d, frag_end %d\n",
 			vt_start, vt_end, frag_end);
+		return -EINVAL;
 	}
-	if (frag_end_err) {
-		renderpasses_in_flight = 1;
-		pending_frag_count = 1;
-	} else {
-		renderpasses_in_flight = vt_start - frag_end;
-		pending_frag_count = vt_end - frag_end;
-	}
+
+	renderpasses_in_flight = vt_start - frag_end;
+	pending_frag_count = vt_end - frag_end;
 
 	err = kbase_csf_tiler_heap_alloc_new_chunk(kctx, gpu_heap_va, renderpasses_in_flight,
 						   pending_frag_count, &new_chunk_ptr);

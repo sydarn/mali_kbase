@@ -2907,7 +2907,7 @@ static void program_csg_slot(struct kbase_queue_group *group, s8 slot, u8 prio)
 	mutex_unlock(&kbdev->mmu_hw_mutex);
 
 	if (kctx->as_nr == KBASEP_AS_NR_INVALID) {
-		dev_dbg(kbdev->dev,
+		dev_warn(kbdev->dev,
 			 "Could not get a valid AS for group %d of context %d_%d on slot %d\n",
 			 group->handle, kctx->tgid, kctx->id, slot);
 		kbase_csf_mcu_shared_set_group_csg_reg_unused(kbdev, group);

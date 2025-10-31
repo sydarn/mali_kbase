@@ -28,6 +28,7 @@
 
 #include <linux/list.h>
 #include <linux/mman.h>
+#include <linux/version_compat_defs.h>
 
 /**
  * struct firmware_trace_buffer - Trace Buffer within the MCU firmware
@@ -123,7 +124,7 @@ static const struct firmware_trace_buffer_data trace_buffer_data[] = {
 	{ KBASE_CSFFW_BENCHMARK_BUF_NAME, { 0 }, 2 },
 	{ KBASE_CSFFW_TIMELINE_BUF_NAME, { 0 }, KBASE_CSF_TL_BUFFER_NR_PAGES },
 #if IS_ENABLED(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD)
-	{ KBASE_CSFFW_GPU_METRICS_BUF_NAME, { 0 }, 32 },
+	{ KBASE_CSFFW_GPU_METRICS_BUF_NAME, { 0 }, 8 },
 #endif /* CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD */
 };
 
