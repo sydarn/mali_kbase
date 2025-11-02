@@ -62,7 +62,7 @@ COPTS_KBASE = [
     "-DMALI_COVERAGE=0",
     "-DMALI_JIT_PRESSURE_LIMIT_BASE=1",
     "-DMALI_USE_CSF=0",
-    "-DMALI_RELEASE_NAME=\"r54p1-12eac0\"",
+    "-DMALI_RELEASE_NAME=\"r54p2-01eac0\"",
 ] + select({
     "//config:mali_debug": ["-DMALI_UNIT_TEST=1"],
     "//conditions:default": ["-DMALI_UNIT_TEST=0"],
