@@ -49,26 +49,10 @@ genrule(
 )
 
 filegroup(
-    name = "coresightconfig",
-    srcs =
-        select({
-            "//config:mali_coresight": [":coresight.fragment"],
-            "//conditions:default": [":nocoresight.fragment"],
-        }),
-)
-
-genrule(
-    name = "coresight_defconfig",
-    srcs = [":coresightconfig"],
-    outs = ["common/coresight.defconfig"],
-    cmd = "cat $(SRCS) >> $(OUTS)",
-)
-
-filegroup(
     name = "kbaseconfig",
     srcs = ["midgard.fragment"] +
            select({
-               "//config:mali_no_mali": ["nomali.fragment"],
+               "//config:no_mali": ["nomali.fragment"],
                "//conditions:default": ["real_hw.fragment"],
            }) +
            select({
@@ -96,11 +80,11 @@ filegroup(
                "//conditions:default": [],
            }) +
            select({
-               "//config:mali_debug_kutf": ["debug_kutf.fragment"],
+               "//config:mali_expert_debug": ["debug_kutf.fragment"],
                "//conditions:default": [],
            }) +
            select({
-               "//config:mali_coresight": ["coresight.fragment"],
+               "//config:mali_debug_devfreq_no_mali": ["debug_kutf_devfreq_no_mali.fragment"],
                "//conditions:default": [],
            }) +
            select({
