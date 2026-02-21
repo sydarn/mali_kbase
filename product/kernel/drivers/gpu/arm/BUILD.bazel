@@ -33,33 +33,21 @@ package(
 
 ddk_headers(
     name = "mali_arbitration_shared_config_defaults",
-    includes = [
-        "midgard",
-        ".",
-    ] + select({
-        "//config:mali_arbitration": ["arbitration"],
-        "//conditions:default": [],
-    }),
+    includes = ["midgard"]
 )
 
 filegroup(
     name = "gpu_kconfig",
     srcs = [
         "//drivers/gpu/arm/midgard:midgard_kconfig",
-    ] + select({
-        "//config:mali_arbitration": ["//drivers/gpu/arm/arbitration:arbitration_kconfig"],
-        "//conditions:default": [],
-    }),
+    ]
 )
 
 kernel_module_group(
     name = "gpu",
     srcs = ["//drivers/gpu/arm/midgard:mali_kbase"] +
            select({
-               "//config:mali_arbitration": ["//drivers/gpu/arm/arbitration:arbitration"],
+               "//config:mali_debug_kutf": ["//drivers/gpu/arm/midgard/tests:mali_kutf_tests"],
                "//conditions:default": [],
-           }) + select({
-        "//config:mali_expert_debug": ["//drivers/gpu/arm/midgard/tests:mali_kutf_tests"],
-        "//conditions:default": [],
-    }),
+           }),
 )

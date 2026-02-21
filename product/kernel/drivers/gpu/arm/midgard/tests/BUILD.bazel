@@ -17,13 +17,14 @@
 # http://www.gnu.org/licenses/gpl-2.0.html.
 #
 #
+
 load(
     "@kleaf//build/kernel/kleaf:kernel.bzl",
     "ddk_headers",
     "ddk_module",
     "kernel_module_group",
 )
-load("//config:cflags.bzl", "COPTS_KBASE", "KUTF_CFLAGS")
+load("//config:cflags.bzl", "KUTF_CFLAGS", "COPTS_KBASE")
 
 package(
     default_visibility = [
@@ -50,13 +51,7 @@ kernel_module_group(
         ":mali_kutf_clk_rate_trace_test",
         ":mali_kutf_irq_test",
         ":mali_kutf_mgm_integration_test",
-    ] + select({
-        "//config:mali_arbiter_support": [
-            ":mali_kutf_arbif_test",
-            ":kutf_arbif_test_helper",
-        ],
-        "//conditions:default": [],
-    }),
+    ]
 )
 
 ddk_module(
@@ -73,7 +68,7 @@ ddk_module(
     out = "kutf.ko",
     hdrs = [
         ":kutf_headers",
-        "//drivers/gpu/arm/midgard:mali_kernel_headers",
+        "//drivers/gpu/arm/midgard:kbase_kernel_headers",
     ],
     copts = KUTF_CFLAGS + COPTS_KBASE,
     kernel_build = "@kleaf//common:kernel",
@@ -86,7 +81,7 @@ ddk_module(
     out = "mali_kutf_irq_test.ko",
     hdrs = [
         ":kutf_headers",
-        "//drivers/gpu/arm/midgard:mali_kernel_headers",
+        "//drivers/gpu/arm/midgard:kbase_kernel_headers",
     ],
     copts = KUTF_CFLAGS + COPTS_KBASE,
     kernel_build = "@kleaf//common:kernel",
@@ -113,7 +108,7 @@ ddk_module(
     name = "mali_kutf_mgm_integration_test",
     srcs = ["mali_kutf_mgm_integration_test/mali_kutf_mgm_integration_test_main.c"],
     out = "mali_kutf_mgm_integration_test.ko",
-    hdrs = ["//drivers/gpu/arm/midgard:mali_kernel_headers"],
+    hdrs = ["//drivers/gpu/arm/midgard:kbase_kernel_headers"],
     copts = KUTF_CFLAGS + COPTS_KBASE,
     kernel_build = "@kleaf//common:kernel",
     deps = [

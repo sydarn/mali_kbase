@@ -43,7 +43,7 @@ CFLAGS_MODULE = [
     "-Wno-type-limits",
     "-Wunused-macros",
 ] + select({
-    "//config:cov_kernel": [
+    "//config:mali_gcov_kernel": [
         "-DGCOV_PROFILE=1",
         "-ftest-coverage",
         "-fprofile-arcs",
@@ -58,24 +58,24 @@ CFLAGS_MODULE = [
     "//conditions:default": [],
 })
 
+CFLAGS_CORESIGHT = [
+    "-Wmissing-include-dirs",
+    "-Wunused-but-set-variable",
+    "-Wunused-const-variable",
+    # "-Wstringop-truncation",
+]
+
 COPTS_KBASE = [
     "-DMALI_COVERAGE=0",
-    "-DMALI_JIT_PRESSURE_LIMIT_BASE=1",
-    "-DMALI_USE_CSF=0",
-    "-DMALI_RELEASE_NAME=\"r54p2-01eac0\"",
+    "-DMALI_JIT_PRESSURE_LIMIT_BASE=0",
+    "-DMALI_RELEASE_NAME=\"r54p3-00eac0\"",
 ] + select({
     "//config:mali_debug": ["-DMALI_UNIT_TEST=1"],
     "//conditions:default": ["-DMALI_UNIT_TEST=0"],
 }) + select({
-    "//config:mali_has_cl": ["-DMALI_HAS_CL=1"],
-    "//conditions:default": ["-DMALI_HAS_CL=0"],
-}) + select({
-    "//config:mali_has_gles": ["-DMALI_HAS_GLES=1"],
-    "//conditions:default": ["-DMALI_HAS_GLES=0"],
-}) + select({
     "//config:mali_customer_release": ["-DMALI_CUSTOMER_RELEASE=0"],
     "//conditions:default": ["-DMALI_CUSTOMER_RELEASE=0"],
 }) + select({
-    "//config:mali_expert_debug": ["-DMALI_KERNEL_TEST_API=1"],
+    "//config:mali_debug_kutf": ["-DMALI_KERNEL_TEST_API=1"],
     "//conditions:default": ["-DMALI_KERNEL_TEST_API=0"],
 })
