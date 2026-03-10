@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2010-2024 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2025 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -2495,7 +2495,11 @@ void kbase_pm_reset_complete(struct kbase_device *kbdev)
 	struct kbase_pm_backend_data *backend = &kbdev->pm.backend;
 	unsigned long flags;
 
-	WARN_ON(!kbase_reset_gpu_is_active(kbdev));
+#if IS_ENABLED(CONFIG_MALI_ARBITER_SUPPORT)
+	if (!kbase_pm_is_gpu_lost(kbdev))
+		WARN_ON(!kbase_reset_gpu_is_active(kbdev));
+#endif
+
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 
 	/* As GPU has just been reset, that results in implicit flush of L2
