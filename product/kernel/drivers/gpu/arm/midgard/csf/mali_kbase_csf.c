@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2018-2024 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018-2025 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -2951,10 +2951,6 @@ static inline void process_protm_exit(struct kbase_device *kbdev, u32 glb_ack)
 		kbase_ipa_control_protm_exited(kbdev);
 		kbase_hwcnt_backend_csf_protm_exited(&kbdev->hwcnt_gpu_iface);
 	}
-
-#if IS_ENABLED(CONFIG_MALI_CORESIGHT)
-	kbase_debug_coresight_csf_enable_pmode_exit(kbdev);
-#endif /* IS_ENABLED(CONFIG_MALI_CORESIGHT) */
 }
 
 static inline void process_tracked_info_for_protm(struct kbase_device *kbdev,

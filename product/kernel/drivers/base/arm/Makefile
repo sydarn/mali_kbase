@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 #
-# (C) COPYRIGHT 2021-2024 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2021-2025 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -40,13 +40,6 @@ ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
     ifeq ($(CONFIG_MALI_BASE_MODULES),y)
         CONFIG_MALI_CSF_SUPPORT ?= n
 
-        ifneq ($(CONFIG_DMA_SHARED_BUFFER),n)
-            CONFIG_DMA_SHARED_BUFFER_TEST_EXPORTER ?= y
-        else
-            # Prevent misuse when CONFIG_DMA_SHARED_BUFFER=n
-            CONFIG_DMA_SHARED_BUFFER_TEST_EXPORTER = n
-        endif
-
         CONFIG_MALI_MEMORY_GROUP_MANAGER ?= y
 
         ifneq ($(CONFIG_MALI_CSF_SUPPORT), n)
@@ -55,7 +48,6 @@ ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
 
     else
         # Prevent misuse when CONFIG_MALI_BASE_MODULES=n
-        CONFIG_DMA_SHARED_BUFFER_TEST_EXPORTER = n
         CONFIG_MALI_MEMORY_GROUP_MANAGER = n
         CONFIG_MALI_PROTECTED_MEMORY_ALLOCATOR = n
 
@@ -64,7 +56,6 @@ ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
     CONFIGS += \
         CONFIG_MALI_BASE_MODULES \
         CONFIG_MALI_CSF_SUPPORT \
-        CONFIG_DMA_SHARED_BUFFER_TEST_EXPORTER \
         CONFIG_MALI_MEMORY_GROUP_MANAGER \
         CONFIG_MALI_PROTECTED_MEMORY_ALLOCATOR \
 
@@ -83,12 +74,12 @@ MAKE_ARGS := $(foreach config,$(CONFIGS), \
                         $(value config)=n))
 
 #
-# EXTRA_CFLAGS to define the custom CONFIGs on out-of-tree build
+# CFLAGS_MODULE to define the custom CONFIGs on out-of-tree build
 #
 # Generate the list of CONFIGs defines with values from CONFIGS.
 # $(value config) is the name of the CONFIG option.
 # When set to y or m, the CONFIG gets defined to 1.
-EXTRA_CFLAGS := $(foreach config,$(CONFIGS), \
+CFLAGS_MODULE := $(foreach config,$(CONFIGS), \
                     $(if $(filter y m,$(value $(value config))), \
                         -D$(value config)=1))
 
@@ -97,13 +88,13 @@ CFLAGS_MODULE += -Wall -Werror
 ifeq ($(CONFIG_GCOV_KERNEL), y)
     CFLAGS_MODULE += $(call cc-option, -ftest-coverage)
     CFLAGS_MODULE += $(call cc-option, -fprofile-arcs)
-    EXTRA_CFLAGS += -DGCOV_PROFILE=1
+    CFLAGS_MODULE += -DGCOV_PROFILE=1
 endif
 
 ifeq ($(CONFIG_MALI_KCOV),y)
     CFLAGS_MODULE += $(call cc-option, -fsanitize-coverage=trace-cmp)
-    EXTRA_CFLAGS += -DKCOV=1
-    EXTRA_CFLAGS += -DKCOV_ENABLE_COMPARISONS=1
+    CFLAGS_MODULE += -DKCOV=1
+    CFLAGS_MODULE += -DKCOV_ENABLE_COMPARISONS=1
 endif
 
 # The following were added to align with W=1 in scripts/Makefile.extrawarn
@@ -151,7 +142,7 @@ KBUILD_CPPFLAGS += -DKBUILD_EXTRA_WARN2
 CFLAGS_MODULE += -Wno-ignored-qualifiers
 
 all:
-	$(MAKE) -C $(KDIR) M=$(M) $(MAKE_ARGS) EXTRA_CFLAGS="$(EXTRA_CFLAGS)" KBUILD_EXTRA_SYMBOLS="$(EXTRA_SYMBOLS)" modules
+	$(MAKE) -C $(KDIR) M=$(M) $(MAKE_ARGS) CFLAGS_MODULE="$(CFLAGS_MODULE)" KBUILD_EXTRA_SYMBOLS="$(EXTRA_SYMBOLS)" modules
 
 modules_install:
 	$(MAKE) -C $(KDIR) M=$(M) $(MAKE_ARGS) modules_install

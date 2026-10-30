@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2011-2025 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2026 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -39,6 +39,7 @@
 #if IS_ENABLED(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD)
 #include <mali_kbase_gpu_metrics.h>
 #endif
+#include <linux/kthread.h>
 
 /*
  * Private types
@@ -654,8 +655,13 @@ int kbasep_js_devdata_init(struct kbase_device *const kbdev)
 	}
 
 #if IS_ENABLED(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD)
+#if KERNEL_VERSION(6, 15, 0) <= LINUX_VERSION_CODE
+	hrtimer_setup(&jsdd->gpu_metrics_timer, gpu_metrics_timer_callback, CLOCK_MONOTONIC,
+		      HRTIMER_MODE_REL);
+#else
 	hrtimer_init(&jsdd->gpu_metrics_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	jsdd->gpu_metrics_timer.function = gpu_metrics_timer_callback;
+#endif
 	jsdd->gpu_metrics_timer_needed = false;
 	jsdd->gpu_metrics_timer_running = false;
 #endif
@@ -2651,7 +2657,7 @@ struct kbase_jd_atom *kbase_js_pull(struct kbase_context *kctx, unsigned int js)
 	return katom;
 }
 
-static void js_return_worker(struct work_struct *data)
+static void js_return_worker(struct kthread_work *data)
 {
 	struct kbase_jd_atom *katom = container_of(data, struct kbase_jd_atom, work);
 	struct kbase_context *kctx = katom->kctx;
@@ -2769,15 +2775,13 @@ void kbase_js_unpull(struct kbase_context *kctx, struct kbase_jd_atom *katom)
 
 	jsctx_rb_unpull(kctx, katom);
 
-	WARN_ON(work_pending(&katom->work));
-
 	/* Block re-submission until workqueue has run */
 	atomic_inc(&katom->blocked);
 
 	kbase_job_check_leave_disjoint(kctx->kbdev, katom);
 
-	INIT_WORK(&katom->work, js_return_worker);
-	queue_work(kctx->jctx.job_done_wq, &katom->work);
+	kthread_init_work(&katom->work, js_return_worker);
+	kthread_queue_work(kctx->jctx.job_done_worker, &katom->work);
 }
 
 bool kbase_js_complete_atom_wq(struct kbase_context *kctx, struct kbase_jd_atom *katom)

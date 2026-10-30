@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 #
-# (C) COPYRIGHT 2012-2024 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2012-2026 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -159,12 +159,6 @@ config MALI_DMA_BUF_LEGACY_COMPAT
 	  flushes in other drivers. This only has an effect for clients using
 	  UK 11.18 or older. For later UK versions it is not possible.
 
-config MALI_CORESIGHT
-	depends on MALI_MIDGARD && MALI_CSF_SUPPORT && !NO_MALI
-	select CSFFW_DEBUG_FW_AS_RW
-	bool "Enable Kbase CoreSight tracing support"
-	default n
-
 menuconfig MALI_EXPERT
 	depends on MALI_MIDGARD
 	bool "Enable Expert Settings"
@@ -200,6 +194,19 @@ config LARGE_PAGE_SUPPORT
 	  This depends on GPU support.
 
 	  If in doubt, say Y.
+
+config MALI_PAGE_MIGRATION
+	bool "Support for page migration"
+	depends on MALI_MIDGARD && MALI_EXPERT && BACKEND_KERNEL
+	default n
+	help
+	  EXPERIMENTAL: allows runtime page migration to be operational (non-Android platforms).
+
+	  Note that this option only enables the page migration on experimental basis
+	  with non-Android build. Incidentally enables it on Android platforms will cause
+	  compile-time error and fail the build.
+
+	  If in doubt, say N.
 
 config MALI_DEBUG
 	bool "Enable debug build"

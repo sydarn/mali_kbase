@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2018-2024 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018-2025 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -35,10 +35,6 @@
 
 #include <linux/types.h>
 #include <linux/wait.h>
-
-#if IS_ENABLED(CONFIG_MALI_CORESIGHT)
-#include <debug/backend/mali_kbase_debug_coresight_internal_csf.h>
-#endif /* IS_ENABLED(CONFIG_MALI_CORESIGHT) */
 
 /* Maximum number of KCPU command queues to be created per GPU address space.
  */
@@ -1755,12 +1751,6 @@ struct kbase_csf_device {
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	struct kbase_csf_dump_on_fault dof;
 #endif /* CONFIG_DEBUG_FS */
-#if IS_ENABLED(CONFIG_MALI_CORESIGHT)
-	/**
-	 * @coresight: Coresight device structure.
-	 */
-	struct kbase_debug_coresight_device coresight;
-#endif /* IS_ENABLED(CONFIG_MALI_CORESIGHT) */
 	struct kbase_csf_user_reg user_reg;
 	atomic_t pending_gpuq_kicks;
 	struct list_head pending_gpuq_kick_queues[KBASE_QUEUE_GROUP_PRIORITY_COUNT];

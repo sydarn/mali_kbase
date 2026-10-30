@@ -32,18 +32,6 @@ package(
     ],
 )
 
-bool_flag(
-    name = "DMA_SHARED_BUFFER",
-    build_setting_default = False,
-)
-
-config_setting(
-    name = "dma_shared_buffer",
-    flag_values = {
-        ":DMA_SHARED_BUFFER": "true",
-    },
-)
-
 
 bool_flag(
     name = "MALI_GCOV_KERNEL",

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2026 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -302,6 +302,8 @@
 #define SC_TLS_HASH_ENABLE (1ul << 17)
 #define SC_LS_ATTR_CHECK_DISABLE (1ul << 18)
 #define SC_VAR_ALGORITHM (1ul << 29)
+
+#define SC_DISABLE_CRC_AFBC_COMPRESSED (1ul << 1)
 /* End SHADER_CONFIG register */
 
 /* TILER_CONFIG register */

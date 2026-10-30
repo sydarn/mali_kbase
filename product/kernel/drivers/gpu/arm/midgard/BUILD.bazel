@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 #
-# (C) COPYRIGHT 2025 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2025-2026 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -243,7 +243,7 @@ ddk_module(
             ] + glob([
                 "ipa/*.h",
                 "ipa/backend/*.h",
-            ]),
+            ], allow_empty = True),
         },
         "CONFIG_MALI_CINSTR_GWT": {
             True: [
@@ -257,9 +257,9 @@ ddk_module(
             ] + glob([
                 "arbiter/*.h",
                 "arbiter/backend/*.h",
-            ]),
+            ], allow_empty = True),
         },
     },
-    copts = COPTS_KBASE + CFLAGS_MODULE,
+    copts = COPTS_KBASE + CFLAGS_MODULE + ["-D__ANDROID_COMMON_KERNEL__=1"],
     kernel_build = "@kleaf//common:kernel",
 )

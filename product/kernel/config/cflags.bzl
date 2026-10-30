@@ -42,6 +42,9 @@ CFLAGS_MODULE = [
     "-Wmissing-field-initializers",
     "-Wno-type-limits",
     "-Wunused-macros",
+    "-Wmissing-format-attribute",
+    "-Wunused-but-set-variable",
+    "-Wuninitialized",
 ] + select({
     "//config:cov_kernel": [
         "-DGCOV_PROFILE=1",
@@ -62,7 +65,7 @@ COPTS_KBASE = [
     "-DMALI_COVERAGE=0",
     "-DMALI_JIT_PRESSURE_LIMIT_BASE=1",
     "-DMALI_USE_CSF=0",
-    "-DMALI_RELEASE_NAME=\"r54p2-02eac0\"",
+    "-DMALI_RELEASE_NAME=\"r56p0-20eac0\"",
 ] + select({
     "//config:mali_debug": ["-DMALI_UNIT_TEST=1"],
     "//conditions:default": ["-DMALI_UNIT_TEST=0"],

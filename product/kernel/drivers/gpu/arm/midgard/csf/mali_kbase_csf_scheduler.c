@@ -4154,15 +4154,6 @@ static void scheduler_group_check_protm_enter(struct kbase_device *const kbdev,
 				KBASE_KTRACE_ADD_CSF_GRP(kbdev, SCHEDULER_PROTM_ENTER, input_grp,
 							 0u);
 
-#if IS_ENABLED(CONFIG_MALI_CORESIGHT)
-				spin_unlock_irqrestore(&scheduler->interrupt_lock, flags);
-
-				/* Coresight must be disabled before entering protected mode. */
-				kbase_debug_coresight_csf_disable_pmode_enter(kbdev);
-
-				spin_lock_irqsave(&scheduler->interrupt_lock, flags);
-#endif /* IS_ENABLED(CONFIG_MALI_CORESIGHT) */
-
 				kbase_csf_enter_protected_mode(kbdev);
 				/* Set the pending protm seq number to the next one */
 				protm_enter_set_next_pending_seq(kbdev);

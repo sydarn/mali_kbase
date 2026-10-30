@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 #
-# (C) COPYRIGHT 2010-2024 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2010-2026 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -46,8 +46,6 @@ ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
         ifneq ($(CONFIG_MALI_NO_MALI),y)
             # Prevent misuse when CONFIG_MALI_NO_MALI!=y
             CONFIG_MALI_REAL_HW ?= y
-        else
-            CONFIG_MALI_CORESIGHT = n
         endif
 
         ifeq ($(CONFIG_MALI_MIDGARD_DVFS),y)
@@ -60,10 +58,6 @@ ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
         ifeq ($(CONFIG_MALI_DMA_BUF_MAP_ON_DEMAND), y)
             # Prevent misuse when CONFIG_MALI_DMA_BUF_MAP_ON_DEMAND=y
             CONFIG_MALI_DMA_BUF_LEGACY_COMPAT = n
-        endif
-
-        ifeq ($(CONFIG_MALI_CSF_SUPPORT), y)
-            CONFIG_MALI_CORESIGHT ?= n
         endif
 
         #
@@ -104,6 +98,7 @@ ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
             # Prevent misuse when CONFIG_MALI_EXPERT=n
             CONFIG_MALI_CORESTACK = n
             CONFIG_LARGE_PAGE_SUPPORT = y
+            CONFIG_MALI_PAGE_MIGRATION = n
             CONFIG_MALI_PWRSOFT_765 = n
             CONFIG_MALI_JOB_DUMP = n
             CONFIG_MALI_NO_MALI = n
@@ -167,6 +162,7 @@ ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
         CONFIG_MALI_EXPERT \
         CONFIG_MALI_CORESTACK \
         CONFIG_LARGE_PAGE_SUPPORT \
+        CONFIG_MALI_PAGE_MIGRATION \
         CONFIG_MALI_PWRSOFT_765 \
         CONFIG_MALI_JOB_DUMP \
         CONFIG_MALI_NO_MALI \
@@ -186,7 +182,6 @@ ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
         CONFIG_MALI_KUTF_CLK_RATE_TRACE \
         CONFIG_MALI_KUTF_MGM_INTEGRATION_TEST \
         CONFIG_MALI_XEN \
-        CONFIG_MALI_CORESIGHT \
         CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD
 
 
@@ -212,18 +207,18 @@ ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
 endif
 
 #
-# EXTRA_CFLAGS to define the custom CONFIGs on out-of-tree build
+# CFLAGS_MODULE to define the custom CONFIGs on out-of-tree build
 #
 # Generate the list of CONFIGs defines with values from CONFIGS.
 # $(value config) is the name of the CONFIG option.
 # When set to y or m, the CONFIG gets defined to 1.
-EXTRA_CFLAGS := $(foreach config,$(CONFIGS), \
+CFLAGS_MODULE := $(foreach config,$(CONFIGS), \
                     $(if $(filter y m,$(value $(value config))), \
                         -D$(value config)=1))
 
 ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
-    EXTRA_CFLAGS += -DCONFIG_MALI_PLATFORM_NAME='\"$(CONFIG_MALI_PLATFORM_NAME)\"'
-    EXTRA_CFLAGS += -DCONFIG_MALI_NO_MALI_DEFAULT_GPU='\"$(CONFIG_MALI_NO_MALI_DEFAULT_GPU)\"'
+    CFLAGS_MODULE += -DCONFIG_MALI_PLATFORM_NAME='\"$(CONFIG_MALI_PLATFORM_NAME)\"'
+    CFLAGS_MODULE += -DCONFIG_MALI_NO_MALI_DEFAULT_GPU='\"$(CONFIG_MALI_NO_MALI_DEFAULT_GPU)\"'
 endif
 
 #
@@ -284,17 +279,17 @@ CFLAGS_MODULE += -Wno-ignored-qualifiers
 ifeq ($(CONFIG_GCOV_KERNEL),y)
     CFLAGS_MODULE += $(call cc-option, -ftest-coverage)
     CFLAGS_MODULE += $(call cc-option, -fprofile-arcs)
-    EXTRA_CFLAGS += -DGCOV_PROFILE=1
+    CFLAGS_MODULE += -DGCOV_PROFILE=1
 endif
 
 ifeq ($(CONFIG_MALI_KCOV),y)
     CFLAGS_MODULE += $(call cc-option, -fsanitize-coverage=trace-cmp)
-    EXTRA_CFLAGS += -DKCOV=1
-    EXTRA_CFLAGS += -DKCOV_ENABLE_COMPARISONS=1
+    CFLAGS_MODULE += -DKCOV=1
+    CFLAGS_MODULE += -DKCOV_ENABLE_COMPARISONS=1
 endif
 
 all:
-	$(MAKE) -C $(KDIR) M=$(M) $(MAKE_ARGS) EXTRA_CFLAGS="$(EXTRA_CFLAGS)" KBUILD_EXTRA_SYMBOLS="$(EXTRA_SYMBOLS)" modules
+	$(MAKE) -C $(KDIR) M=$(M) $(MAKE_ARGS) CFLAGS_MODULE="$(CFLAGS_MODULE)" KBUILD_EXTRA_SYMBOLS="$(EXTRA_SYMBOLS)" modules
 
 modules_install:
 	$(MAKE) -C $(KDIR) M=$(M) $(MAKE_ARGS) modules_install

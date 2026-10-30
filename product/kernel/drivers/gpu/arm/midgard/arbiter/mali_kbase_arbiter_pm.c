@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2025 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -289,8 +289,13 @@ int kbase_arbiter_pm_early_init(struct kbase_device *kbdev)
 	INIT_WORK(&arb_vm_state->vm_resume_work, kbase_arbiter_pm_resume_wq);
 	arb_vm_state->vm_arb_starting = false;
 	atomic_set(&kbdev->pm.gpu_users_waiting, 0);
+#if KERNEL_VERSION(6, 15, 0) <= LINUX_VERSION_CODE
+	hrtimer_setup(&arb_vm_state->vm_request_timer, request_timer_callback, CLOCK_MONOTONIC,
+		      HRTIMER_MODE_REL);
+#else
 	hrtimer_init(&arb_vm_state->vm_request_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	arb_vm_state->vm_request_timer.function = request_timer_callback;
+#endif
 	kbdev->pm.arb_vm_state = arb_vm_state;
 
 	err = kbase_arbif_init(kbdev);
@@ -509,12 +514,13 @@ int kbase_arbiter_pm_gpu_assigned(struct kbase_device *kbdev)
  * kbase_arbiter_pm_vm_gpu_start() - Handles the start state of the VM
  * @kbdev: The kbase device structure for the device
  *
- * Handles the start state of the VM
+ * Return: whether the caller needs to install interrupts for the VM.
  */
-static void kbase_arbiter_pm_vm_gpu_start(struct kbase_device *kbdev)
+static bool kbase_arbiter_pm_vm_gpu_start(struct kbase_device *kbdev)
 {
 	struct kbase_arbiter_vm_state *arb_vm_state = kbdev->pm.arb_vm_state;
 	bool freq_updated = false;
+	bool shall_install_interrupts = false;
 
 	lockdep_assert_held(&arb_vm_state->vm_state_lock);
 	mutex_lock(&kbdev->arb.arb_freq.arb_freq_lock);
@@ -533,21 +539,22 @@ static void kbase_arbiter_pm_vm_gpu_start(struct kbase_device *kbdev)
 		kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_STARTING);
 
 		/*
-		 * Re-install interrupts that were released on VM_STOP to address
-		 * Xen requirements. Interrupts are not released on VM_STOP for
-		 * PTM as it has dedicated IRQs per VM.
+		 * Set a flag to re-install interrupts that were released on VM_STOP
+		 * to address Xen requirements. Interrupts are not released on VM_STOP
+		 * for PTM as it has dedicated IRQs per VM. Notice that interrupts
+		 * will be installed at a later stage, after releasing the vm_state_lock.
 		 */
 		if (kbdev->gpu_props.gpu_id.product_model != GPU_ID_PRODUCT_TBAX) {
-			arb_vm_state->interrupts_installed = true;
-			kbase_install_interrupts(kbdev);
+			shall_install_interrupts = true;
+		} else {
+			/*
+			 * GPU GRANTED received while in stop can be a result of a
+			 * repartitioning.
+			 */
+			kbase_gpuprops_req_curr_config_update(kbdev);
+			/* curr_config will be updated while resuming the PM. */
+			queue_work(arb_vm_state->vm_arb_wq, &arb_vm_state->vm_resume_work);
 		}
-		/*
-		 * GPU GRANTED received while in stop can be a result of a
-		 * repartitioning.
-		 */
-		kbase_gpuprops_req_curr_config_update(kbdev);
-		/* curr_config will be updated while resuming the PM. */
-		queue_work(arb_vm_state->vm_arb_wq, &arb_vm_state->vm_resume_work);
 		break;
 	case KBASE_VM_STATE_SUSPEND_WAIT_FOR_GRANT:
 		kbase_pm_set_gpu_lost(kbdev, false);
@@ -565,6 +572,8 @@ static void kbase_arbiter_pm_vm_gpu_start(struct kbase_device *kbdev)
 				 kbase_arbiter_pm_vm_state_str(arb_vm_state->vm_state));
 		break;
 	}
+
+	return shall_install_interrupts;
 }
 
 /**
@@ -791,6 +800,7 @@ static void kbase_arbiter_pm_vm_os_resume(struct kbase_device *kbdev)
 void kbase_arbiter_pm_vm_event(struct kbase_device *kbdev, enum kbase_arbif_evt evt)
 {
 	struct kbase_arbiter_vm_state *arb_vm_state = kbdev->pm.arb_vm_state;
+	bool shall_install_interrupts = false;
 
 	if (!kbdev->arb.arb_if)
 		return;
@@ -802,7 +812,11 @@ void kbase_arbiter_pm_vm_event(struct kbase_device *kbdev, enum kbase_arbif_evt 
 		KBASE_KTRACE_ADD(kbdev, ARB_VM_EVT, NULL, evt);
 	switch (evt) {
 	case KBASE_VM_GPU_GRANTED_EVT:
-		kbase_arbiter_pm_vm_gpu_start(kbdev);
+		/* The GPU start happens in 2 stages. The installation of interrupts
+		 * is postponed to a second stage, after releasing the vm_state_lock,
+		 * because it requires memory allocation that could lead to deadlock.
+		 */
+		shall_install_interrupts = kbase_arbiter_pm_vm_gpu_start(kbdev);
 		break;
 	case KBASE_VM_GPU_STOP_EVT:
 		kbase_arbiter_pm_vm_gpu_stop(kbdev);
@@ -865,6 +879,34 @@ void kbase_arbiter_pm_vm_event(struct kbase_device *kbdev, enum kbase_arbif_evt 
 		break;
 	}
 	mutex_unlock(&arb_vm_state->vm_state_lock);
+
+	/* Deal with operations that require a second stage after
+	 * releasing vm_state_lock.
+	 */
+	switch (evt) {
+	case KBASE_VM_GPU_GRANTED_EVT:
+		/* Interrupts installation requires memory allocation,
+		 * which may take additional locks and cause deadlock
+		 * if done while locking vm_state_lock.
+		 */
+		if (shall_install_interrupts) {
+			kbase_install_interrupts(kbdev);
+
+			/* Now update the status, once interrupts have been
+			 * installed, and proceed with those operations
+			 * that were postponed, like for instance resuming the GPU.
+			 * This requires locking again.
+			 */
+			mutex_lock(&arb_vm_state->vm_state_lock);
+			arb_vm_state->interrupts_installed = true;
+			kbase_gpuprops_req_curr_config_update(kbdev);
+			queue_work(arb_vm_state->vm_arb_wq, &arb_vm_state->vm_resume_work);
+			mutex_unlock(&arb_vm_state->vm_state_lock);
+		}
+		break;
+	default:
+		break;
+	}
 }
 
 KBASE_EXPORT_TEST_API(kbase_arbiter_pm_vm_event);

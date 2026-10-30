@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2017-2024 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2017-2026 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -62,6 +62,9 @@ bob_defaults {
     large_page_support: {
         kbuild_options: ["CONFIG_LARGE_PAGE_SUPPORT=y"],
     },
+    mali_page_migration: {
+        kbuild_options: ["CONFIG_MALI_PAGE_MIGRATION=y"],
+    },
     mali_corestack: {
         kbuild_options: ["CONFIG_MALI_CORESTACK=y"],
     },
@@ -112,9 +115,6 @@ bob_defaults {
     },
     mali_is_fpga: {
         kbuild_options: ["CONFIG_MALI_IS_FPGA=y"],
-    },
-    mali_coresight: {
-        kbuild_options: ["CONFIG_MALI_CORESIGHT=y"],
     },
     mali_fw_trace_mode_manual: {
         kbuild_options: ["CONFIG_MALI_FW_TRACE_MODE_MANUAL=y"],

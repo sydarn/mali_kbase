@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2025 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -322,8 +322,13 @@ int kbase_backend_timer_init(struct kbase_device *kbdev)
 {
 	struct kbase_backend_data *backend = &kbdev->hwaccess.backend;
 
+#if KERNEL_VERSION(6, 15, 0) <= LINUX_VERSION_CODE
+	hrtimer_setup(&backend->scheduling_timer, timer_callback, CLOCK_MONOTONIC,
+		      HRTIMER_MODE_REL);
+#else
 	hrtimer_init(&backend->scheduling_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	backend->scheduling_timer.function = timer_callback;
+#endif
 	backend->timer_running = false;
 
 	return 0;

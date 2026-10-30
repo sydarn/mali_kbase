@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2025 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -342,10 +342,6 @@ static const struct kbase_device_init dev_init[] = {
 	{ kbase_gpuprops_populate_user_buffer, kbase_gpuprops_free_user_buffer,
 	  "GPU property population failed" },
 	{ kbase_device_late_init, kbase_device_late_term, "Late device initialization failed" },
-#if IS_ENABLED(CONFIG_MALI_CORESIGHT)
-	{ kbase_debug_coresight_csf_init, kbase_debug_coresight_csf_term,
-	  "Coresight initialization failed" },
-#endif /* IS_ENABLED(CONFIG_MALI_CORESIGHT) */
 };
 
 static void kbase_device_term_partial(struct kbase_device *kbdev, unsigned int i)

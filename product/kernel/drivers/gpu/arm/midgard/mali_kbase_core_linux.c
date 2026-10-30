@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2010-2025 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2026 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -521,6 +521,15 @@ void kbase_release_device(struct kbase_device *kbdev)
 }
 EXPORT_SYMBOL(kbase_release_device);
 
+static int kbase_infinite_cache_enable_check(struct device *dev)
+{
+	if (!kbase_is_page_migration_enabled())
+		return 0;
+
+	dev_warn(dev, "infinite_cache is unsupported while page migration is enabled\n");
+	return -EINVAL;
+}
+
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 static ssize_t write_ctx_infinite_cache(struct file *f, const char __user *ubuf, size_t size,
 					loff_t *off)
@@ -535,10 +544,14 @@ static ssize_t write_ctx_infinite_cache(struct file *f, const char __user *ubuf,
 	if (err)
 		return err;
 
-	if (value)
+	if (value) {
+		err = kbase_infinite_cache_enable_check(kctx->kbdev->dev);
+		if (err)
+			return err;
 		kbase_ctx_flag_set(kctx, KCTX_INFINITE_CACHE);
-	else
+	} else {
 		kbase_ctx_flag_clear(kctx, KCTX_INFINITE_CACHE);
+	}
 
 	return (ssize_t)size;
 }
@@ -562,6 +575,51 @@ static const struct file_operations kbase_infinite_cache_fops = {
 	.open = simple_open,
 	.write = write_ctx_infinite_cache,
 	.read = read_ctx_infinite_cache,
+};
+
+static ssize_t write_ctx_defaults_infinite_cache(struct file *f,
+						 const char __user *ubuf,
+						 size_t size, loff_t *off)
+{
+	struct kbase_device *kbdev = f->private_data;
+	int err;
+	bool value;
+
+	CSTD_UNUSED(off);
+
+	err = kstrtobool_from_user(ubuf, size, &value);
+	if (err)
+		return err;
+
+	if (value) {
+		err = kbase_infinite_cache_enable_check(kbdev->dev);
+		if (err)
+			return err;
+	}
+
+	kbdev->infinite_cache_active_default = value;
+
+	return (ssize_t)size;
+}
+
+static ssize_t read_ctx_defaults_infinite_cache(struct file *f, char __user *ubuf, size_t size,
+						loff_t *off)
+{
+	struct kbase_device *kbdev = f->private_data;
+	char buf[32];
+	size_t count;
+
+	count = (size_t)scnprintf(buf, sizeof(buf), "%s\n",
+				  kbdev->infinite_cache_active_default ? "Y" : "N");
+
+	return simple_read_from_buffer(ubuf, size, off, buf, count);
+}
+
+static const struct file_operations kbase_defaults_infinite_cache_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.write = write_ctx_defaults_infinite_cache,
+	.read = read_ctx_defaults_infinite_cache,
 };
 
 static ssize_t write_ctx_force_same_va(struct file *f, const char __user *ubuf, size_t size,
@@ -644,7 +702,8 @@ static int kbase_file_create_kctx(struct kbase_file *const kfile,
 	if (!kctx)
 		return -ENOMEM;
 
-	if (kbdev->infinite_cache_active_default)
+	if (kbdev->infinite_cache_active_default &&
+	    !kbase_infinite_cache_enable_check(kbdev->dev))
 		kbase_ctx_flag_set(kctx, KCTX_INFINITE_CACHE);
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
@@ -2484,12 +2543,15 @@ static int core_mask_parse(struct kbase_device *const kbdev, const char *const b
 			   struct kbase_core_mask *const mask)
 {
 	int items;
+	char *alloc_buf = NULL;
 	char *buf_tmp;
 	char *token;
 
-	buf_tmp = kstrdup(buf, GFP_KERNEL);
-	if (buf_tmp == NULL)
-		goto error;
+	alloc_buf = kstrdup(buf, GFP_KERNEL);
+	if (alloc_buf == NULL)
+		return -ENOMEM;
+
+	buf_tmp = alloc_buf;
 
 	for (items = 0; items < BASE_JM_MAX_NR_SLOTS; items++) {
 		token = strsep(&buf_tmp, " ");
@@ -2497,10 +2559,9 @@ static int core_mask_parse(struct kbase_device *const kbdev, const char *const b
 			break;
 	}
 
-	kfree(buf_tmp);
+	kfree(alloc_buf);
 
 	if (items != 1 && items != BASE_JM_MAX_NR_SLOTS) {
-error:
 		dev_err(kbdev->dev, "Couldn't process core mask write operation.\n"
 				    "Use format <core_mask>\n"
 				    "or <core_mask_js0> <core_mask_js1> <core_mask_js2>\n");
@@ -2735,7 +2796,8 @@ static ssize_t js_timeouts_store(struct device *dev, struct device_attribute *at
 	long js_reset_ms_ss;
 	long js_reset_ms_cl;
 	long js_reset_ms_dumping;
-	char *buf_tmp = NULL;
+	char *alloc_buf = NULL;
+	char *buf_tmp;
 	char *token;
 	unsigned long flags;
 	struct kbasep_js_device_data *js_data;
@@ -2745,9 +2807,11 @@ static ssize_t js_timeouts_store(struct device *dev, struct device_attribute *at
 	kbdev = to_kbase_device(dev);
 	if (!kbdev)
 		return -ENODEV;
-	buf_tmp = kstrdup(buf, GFP_KERNEL);
-	if (buf_tmp == NULL)
-		goto error;
+	alloc_buf = kstrdup(buf, GFP_KERNEL);
+	if (alloc_buf == NULL)
+		return -ENOMEM;
+
+	buf_tmp = alloc_buf;
 
 	token = strsep(&buf_tmp, " ");
 	if (token == NULL || kstrtol(token, 10, &js_soft_stop_ms) < 0)
@@ -2781,7 +2845,7 @@ static ssize_t js_timeouts_store(struct device *dev, struct device_attribute *at
 	if (token == NULL || kstrtol(token, 10, &js_reset_ms_dumping) < 0)
 		goto error;
 
-	kfree(buf_tmp);
+	kfree(alloc_buf);
 	js_data = &kbdev->js_data;
 
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
@@ -2811,7 +2875,7 @@ static ssize_t js_timeouts_store(struct device *dev, struct device_attribute *at
 
 	return (ssize_t)count;
 error:
-	kfree(buf_tmp);
+	kfree(alloc_buf);
 	dev_err(kbdev->dev,
 		"Couldn't process js_timeouts write operation.\n"
 		"Use format <soft_stop_ms> <soft_stop_ms_cl> <hard_stop_ms_ss> <hard_stop_ms_cl> <hard_stop_ms_dumping> <reset_ms_ss> <reset_ms_cl> <reset_ms_dumping>\n"
@@ -3464,6 +3528,7 @@ static ssize_t pm_poweroff_store(struct device *dev, struct device_attribute *at
 	u64 gpu_poweroff_time;
 	unsigned int poweroff_shader_ticks, poweroff_gpu_ticks;
 	unsigned long flags;
+	char *alloc_buf = NULL;
 	char *buf_tmp;
 	char *token;
 
@@ -3473,9 +3538,11 @@ static ssize_t pm_poweroff_store(struct device *dev, struct device_attribute *at
 	if (!kbdev)
 		return -ENODEV;
 
-	buf_tmp = kstrdup(buf, GFP_KERNEL);
-	if (buf_tmp == NULL)
-		goto error;
+	alloc_buf = kstrdup(buf, GFP_KERNEL);
+	if (alloc_buf == NULL)
+		return -ENOMEM;
+
+	buf_tmp = alloc_buf;
 
 	token = strsep(&buf_tmp, " ");
 	if (token == NULL || kstrtoull(token, 10, &gpu_poweroff_time) < 0)
@@ -3488,7 +3555,8 @@ static ssize_t pm_poweroff_store(struct device *dev, struct device_attribute *at
 	token = strsep(&buf_tmp, " ");
 	if (token == NULL || kstrtou32(token, 10, &poweroff_gpu_ticks) < 0)
 		goto error;
-	kfree(buf_tmp);
+
+	kfree(alloc_buf);
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 
 	stt = &kbdev->pm.backend.shader_tick_timer;
@@ -3503,7 +3571,7 @@ static ssize_t pm_poweroff_store(struct device *dev, struct device_attribute *at
 
 	return (ssize_t)count;
 error:
-	kfree(buf_tmp);
+	kfree(alloc_buf);
 	dev_err(kbdev->dev,
 		"Couldn't process pm_poweroff write operation.\n"
 		"Use format <gpu_poweroff_time_ns> <poweroff_shader_ticks> <poweroff_gpu_ticks>\n");
@@ -4935,8 +5003,8 @@ static struct dentry *debugfs_ctx_defaults_init(struct kbase_device *const kbdev
 		return dentry;
 	}
 
-	debugfs_create_bool("infinite_cache", mode, debugfs_ctx_defaults_directory,
-			    &kbdev->infinite_cache_active_default);
+	debugfs_create_file("infinite_cache", mode, debugfs_ctx_defaults_directory, kbdev,
+			    &kbase_defaults_infinite_cache_fops);
 
 	dentry = debugfs_create_file("mem_pool_max_size", mode, debugfs_ctx_defaults_directory,
 				     &kbdev->mem_pool_defaults.small,

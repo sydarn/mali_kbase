@@ -957,6 +957,12 @@ static inline int kbase_reg_prepare_native(struct kbase_va_region *reg, struct k
 
 	reg->cpu_alloc->imported.native.kctx = kctx;
 	if (kbase_ctx_flag(kctx, KCTX_INFINITE_CACHE) && (reg->flags & KBASE_REG_CPU_CACHED)) {
+		if (WARN_ON_ONCE(kbase_is_page_migration_enabled())) {
+			kbase_mem_phy_alloc_put(reg->cpu_alloc);
+			reg->cpu_alloc = NULL;
+			return -EINVAL;
+		}
+
 		reg->gpu_alloc =
 			kbase_alloc_create(kctx, reg->nr_pages, KBASE_MEM_TYPE_NATIVE, group_id);
 		if (IS_ERR_OR_NULL(reg->gpu_alloc)) {

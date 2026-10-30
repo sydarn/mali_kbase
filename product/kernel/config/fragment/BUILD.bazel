@@ -35,10 +35,8 @@ filegroup(
         [
             ":base.fragment",
         ] +
-        select({
-            "//config:dma_shared_buffer": [":dma_buff.fragment"],
-            "//conditions:default": [],
-        }),
+        [
+        ],
 )
 
 genrule(

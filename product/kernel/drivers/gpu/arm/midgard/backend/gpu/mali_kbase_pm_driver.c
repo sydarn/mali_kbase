@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2010-2025 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2026 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -47,7 +47,7 @@
 #include <backend/gpu/mali_kbase_pm_internal.h>
 #include <backend/gpu/mali_kbase_l2_mmu_config.h>
 #include <mali_kbase_dummy_job_wa.h>
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
+#if IS_ENABLED(CONFIG_MALI_ARBITER_SUPPORT)
 #include <arbiter/mali_kbase_arbiter_pm.h>
 #endif /* CONFIG_MALI_ARBITER_SUPPORT */
 
@@ -1000,17 +1000,6 @@ static int kbase_pm_mcu_update_state(struct kbase_device *kbdev)
 					backend->mcu_state = KBASE_MCU_HCTL_SHADERS_PEND_ON;
 				} else
 					backend->mcu_state = KBASE_MCU_ON_HWCNT_ENABLE;
-#if IS_ENABLED(CONFIG_MALI_CORESIGHT)
-				if (kbase_debug_coresight_csf_state_check(
-					    kbdev, KBASE_DEBUG_CORESIGHT_CSF_DISABLED)) {
-					kbase_debug_coresight_csf_state_request(
-						kbdev, KBASE_DEBUG_CORESIGHT_CSF_ENABLED);
-					backend->mcu_state = KBASE_MCU_CORESIGHT_ENABLE;
-				} else if (kbase_debug_coresight_csf_state_check(
-						   kbdev, KBASE_DEBUG_CORESIGHT_CSF_ENABLED)) {
-					backend->mcu_state = KBASE_MCU_CORESIGHT_ENABLE;
-				}
-#endif /* IS_ENABLED(CONFIG_MALI_CORESIGHT) */
 			}
 			break;
 
@@ -1065,17 +1054,6 @@ static int kbase_pm_mcu_update_state(struct kbase_device *kbdev)
 				}
 			} else if (kbase_pm_handle_mcu_core_attr_update(kbdev))
 				backend->mcu_state = KBASE_MCU_ON_CORE_ATTR_UPDATE_PEND;
-#if IS_ENABLED(CONFIG_MALI_CORESIGHT)
-			else if (kbdev->csf.coresight.disable_on_pmode_enter) {
-				kbase_debug_coresight_csf_state_request(
-					kbdev, KBASE_DEBUG_CORESIGHT_CSF_DISABLED);
-				backend->mcu_state = KBASE_MCU_ON_PMODE_ENTER_CORESIGHT_DISABLE;
-			} else if (kbdev->csf.coresight.enable_on_pmode_exit) {
-				kbase_debug_coresight_csf_state_request(
-					kbdev, KBASE_DEBUG_CORESIGHT_CSF_ENABLED);
-				backend->mcu_state = KBASE_MCU_ON_PMODE_EXIT_CORESIGHT_ENABLE;
-			}
-#endif
 			break;
 
 		case KBASE_MCU_HCTL_MCU_ON_RECHECK:
@@ -1161,42 +1139,9 @@ static int kbase_pm_mcu_update_state(struct kbase_device *kbdev)
 				else {
 #endif
 					backend->mcu_state = KBASE_MCU_ON_HALT;
-#if IS_ENABLED(CONFIG_MALI_CORESIGHT)
-					kbase_debug_coresight_csf_state_request(
-						kbdev, KBASE_DEBUG_CORESIGHT_CSF_DISABLED);
-					backend->mcu_state = KBASE_MCU_CORESIGHT_DISABLE;
-#endif /* IS_ENABLED(CONFIG_MALI_CORESIGHT) */
 				}
 			}
 			break;
-
-#if IS_ENABLED(CONFIG_MALI_CORESIGHT)
-		case KBASE_MCU_ON_PMODE_ENTER_CORESIGHT_DISABLE:
-			if (kbase_debug_coresight_csf_state_check(
-				    kbdev, KBASE_DEBUG_CORESIGHT_CSF_DISABLED)) {
-				backend->mcu_state = KBASE_MCU_ON;
-				kbdev->csf.coresight.disable_on_pmode_enter = false;
-			}
-			break;
-		case KBASE_MCU_ON_PMODE_EXIT_CORESIGHT_ENABLE:
-			if (kbase_debug_coresight_csf_state_check(
-				    kbdev, KBASE_DEBUG_CORESIGHT_CSF_ENABLED)) {
-				backend->mcu_state = KBASE_MCU_ON;
-				kbdev->csf.coresight.enable_on_pmode_exit = false;
-			}
-			break;
-		case KBASE_MCU_CORESIGHT_DISABLE:
-			if (kbase_debug_coresight_csf_state_check(
-				    kbdev, KBASE_DEBUG_CORESIGHT_CSF_DISABLED))
-				backend->mcu_state = KBASE_MCU_ON_HALT;
-			break;
-
-		case KBASE_MCU_CORESIGHT_ENABLE:
-			if (kbase_debug_coresight_csf_state_check(
-				    kbdev, KBASE_DEBUG_CORESIGHT_CSF_ENABLED))
-				backend->mcu_state = KBASE_MCU_ON_HWCNT_ENABLE;
-			break;
-#endif /* IS_ENABLED(CONFIG_MALI_CORESIGHT) */
 
 		case KBASE_MCU_ON_HALT:
 			if (!kbase_pm_is_mcu_desired(kbdev)) {
@@ -1319,11 +1264,6 @@ static int kbase_pm_mcu_update_state(struct kbase_device *kbdev)
 			/* Reset complete  */
 			if (!backend->in_reset)
 				backend->mcu_state = KBASE_MCU_OFF;
-
-#if IS_ENABLED(CONFIG_MALI_CORESIGHT)
-			kbdev->csf.coresight.disable_on_pmode_enter = false;
-			kbdev->csf.coresight.enable_on_pmode_exit = false;
-#endif /* IS_ENABLED(CONFIG_MALI_CORESIGHT) */
 			break;
 
 		default:
@@ -2419,8 +2359,12 @@ int kbase_pm_state_machine_init(struct kbase_device *kbdev)
 
 	INIT_WORK(&stt->work, shader_poweroff_timer_stop_callback);
 
+#if KERNEL_VERSION(6, 15, 0) <= LINUX_VERSION_CODE
+	hrtimer_setup(&stt->timer, shader_tick_timer_callback, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+#else
 	hrtimer_init(&stt->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	stt->timer.function = shader_tick_timer_callback;
+#endif
 	stt->configured_interval = HR_TIMER_DELAY_NSEC(DEFAULT_PM_GPU_POWEROFF_TICK_NS);
 	stt->default_ticks = DEFAULT_PM_POWEROFF_TICK_SHADER;
 	stt->configured_ticks = stt->default_ticks;
@@ -2949,13 +2893,18 @@ void kbase_pm_clock_on(struct kbase_device *kbdev, bool is_resume)
 	else {
 		if (kbdev->arb.arb_if) {
 			struct kbase_arbiter_vm_state *arb_vm_state = kbdev->pm.arb_vm_state;
+			int pm_flags = PM_ENABLE_IRQS | PM_NO_RESET;
 
+#if !IS_ENABLED(CONFIG_MALI_KUTF_ARBIF_TEST)
+			if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_TBAX_1260))
+				pm_flags |= PM_TBAX_HW_ISSUE_WA;
+#endif
 			/* In the case that the GPU has just been granted by
 			 * the Arbiter, a reset will have already been done.
 			 * However, it is still necessary to initialize the GPU.
 			 */
 			if (arb_vm_state->vm_arb_starting)
-				kbase_pm_init_hw(kbdev, PM_ENABLE_IRQS | PM_NO_RESET);
+				kbase_pm_init_hw(kbdev, pm_flags);
 		}
 	}
 	/*
@@ -3204,6 +3153,16 @@ static int kbase_set_sc_quirks(struct kbase_device *kbdev)
 
 	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_TLS_HASHING))
 		hw_quirks_sc |= SC_TLS_HASH_ENABLE;
+
+	/* Apply required bits */
+	if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_KRAKEHW_2348)) {
+		if (!(hw_quirks_sc & SC_DISABLE_CRC_AFBC_COMPRESSED))
+			dev_warn(
+				kbdev->dev,
+				"SC_DISABLE_CRC_AFBC_COMPRESSED not set in SHADER_CONFIG dt entry. Overriding, since this GPU requires it.\n");
+
+		hw_quirks_sc |= SC_DISABLE_CRC_AFBC_COMPRESSED;
+	}
 
 	kbdev->hw_quirks_sc = hw_quirks_sc;
 
@@ -3528,7 +3487,7 @@ int kbase_pm_init_hw(struct kbase_device *kbdev, unsigned int flags)
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, irq_flags);
 
 	/* Soft reset the GPU */
-	if (!(flags & PM_NO_RESET))
+	if ((!(flags & PM_NO_RESET)) || (flags & PM_TBAX_HW_ISSUE_WA))
 		err = kbdev->protected_ops->protected_mode_disable(kbdev->protected_dev);
 
 	spin_lock_irqsave(&kbdev->hwaccess_lock, irq_flags);

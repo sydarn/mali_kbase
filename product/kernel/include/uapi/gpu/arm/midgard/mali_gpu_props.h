@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2023-2024 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2023-2025 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -35,9 +35,12 @@ extern "C" {
 /**
  * struct gpu_props_user_data - structure for gpu props user buffer.
  * @core_props:     Core props.
+ * @unused2:        Extra space for address alignment.
  * @l2_props:       L2 props.
+ * @unused3:        Extra space for address alignment.
  * @tiler_props:    Tiler props.
  * @thread_props:   Thread props.
+ * @unused5:        Extra space for address alignment.
  * @raw_props:      Raw register values kept for backwards compatibility. Kbase
  *                  and base should never reference values within this struct.
  * @coherency_info: Coherency information.
@@ -51,17 +54,21 @@ struct gpu_props_user_data {
 		__u16 version_status;
 		__u16 minor_revision;
 		__u16 major_revision;
+		__u8 unused0[2];
 		__u32 gpu_freq_khz_max;
 		__u32 log2_program_counter_size;
 		__u32 texture_features[BASE_GPU_NUM_TEXTURE_FEATURES_REGISTERS];
+		__u8 unused1[4];
 		__u64 gpu_available_memory_size;
 		__u8 num_exec_engines;
 	} core_props;
+	__u8 unused2[7];
 	struct {
 		__u8 log2_line_size;
 		__u8 log2_cache_size;
 		__u8 num_l2_slices;
 	} l2_props;
+	__u8 unused3[2];
 	struct {
 		__u32 bin_size_bytes;
 		__u32 max_active_levels;
@@ -74,9 +81,10 @@ struct gpu_props_user_data {
 		__u8 max_task_queue;
 		__u8 max_thread_group_split;
 		__u8 impl_tech;
+		__u8 unused4;
 		__u32 tls_alloc;
 	} thread_props;
-
+	__u8 unused5[4];
 	/* kept for backward compatibility, should not be used in the future. */
 	struct {
 		__u64 shader_present;
@@ -105,6 +113,7 @@ struct gpu_props_user_data {
 		__u32 num_groups;
 		__u32 num_core_groups;
 		__u32 coherency;
+		__u8 unused6[4];
 		struct {
 			__u64 core_mask;
 			__u32 num_cores;
