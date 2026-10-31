@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2023-2025 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2023-2026 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -1386,6 +1386,7 @@ struct kbase_va_region *kbase_ctx_alloc_free_region(struct kbase_context *kctx,
 	return kbase_alloc_free_region(zone, start_pfn, nr_pages);
 }
 KBASE_EXPORT_TEST_API(kbase_ctx_alloc_free_region);
+KBASE_ALLOW_ERROR_INJECTION_TEST_API(kbase_ctx_alloc_free_region, ERRNO_NULL);
 
 /**
  * kbase_free_alloced_region - Free a region object.

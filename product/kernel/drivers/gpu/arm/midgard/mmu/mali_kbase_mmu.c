@@ -3913,7 +3913,7 @@ static int mmu_migrate_pgd_sub_page(struct kbase_mmu_table *mmut, phys_addr_t ol
 		/* Defer the migration as L2 is in a transitional phase */
 		spin_unlock_irqrestore(&kbdev->hwaccess_lock, hwaccess_flags);
 		mutex_unlock(&kbdev->mmu_hw_mutex);
-		dev_dbg(kbdev->dev, "%s: L2 in transtion, abort PGD page migration", __func__);
+		dev_dbg(kbdev->dev, "%s: L2 in transition, abort PGD page migration", __func__);
 		ret = -EAGAIN;
 		goto l2_state_defer_out;
 	}
@@ -4056,6 +4056,11 @@ int kbase_mmu_migrate_pgd_page(struct tagged_addr old_pgd_phys, struct tagged_ad
 	spin_lock(&page_md->migrate_lock);
 
 	check_state = PAGE_STATUS_GET(page_md->status);
+
+	if (check_state == FREE_PT_ISOLATED_IN_PROGRESS) {
+		ret = -EAGAIN;
+		goto early_exit;
+	}
 
 	if (WARN_ONCE(check_state != PT_MAPPED,
 		      "Page metadata status %d doesn't match expected value %d", check_state,
@@ -4214,6 +4219,12 @@ int kbase_mmu_migrate_data_page(struct tagged_addr old_phys, struct tagged_addr 
 
 	check_state = PAGE_STATUS_GET(page_md->status);
 
+	if (check_state == FREE_ISOLATED_IN_PROGRESS) {
+		/* tear down in progress, abort for progressing to release the page  */
+		ret = -EAGAIN;
+		goto early_exit;
+	}
+
 	if (WARN_ONCE(check_state != ALLOCATED_MAPPED,
 		      "Page metadata status %d doesn't match expected value %d", check_state,
 		      ALLOCATED_MAPPED)) {
@@ -4288,11 +4299,14 @@ int kbase_mmu_migrate_data_page(struct tagged_addr old_phys, struct tagged_addr 
 	op_param.flush_skip_levels = pgd_level_to_skip_flush(1ULL << MIDGARD_MMU_BOTTOMLEVEL);
 
 	/* The state was evaluated before entering this function, but it could
-	 * have changed before the mmu_lock was taken. However, the state
-	 * transitions which are possible at this point are only two, and in both
-	 * cases it is a stable state progressing to a "free in progress" state.
+	 * have changed before the mmu_lock was taken. For alloc-backed data
+	 * pages, concurrent paths such as MEM_FLAGS_CHANGE(BASE_MEM_DONT_NEED)
+	 * or kbase_vmap() saturation may move the page to NOT_MOVABLE while
+	 * leaving the alloc-backed metadata intact.
 	 *
-	 * After taking the mmu_lock the state can no longer change.
+	 * The PTE update itself is serialized by mmu_lock. Migration
+	 * completion therefore tolerates a late transition to NOT_MOVABLE and
+	 * still updates the alloc-backed references to the new page.
 	 */
 	mutex_lock(&mmut->mmu_lock);
 	spin_lock(&page_md->migrate_lock);
@@ -4451,17 +4465,32 @@ int kbase_mmu_migrate_data_page(struct tagged_addr old_phys, struct tagged_addr 
 	mutex_unlock(&kbdev->mmu_hw_mutex);
 	spin_lock(&page_md->migrate_lock);
 
-	/* Undertaking metadata transfer, while we are holding the mmu_lock */
+	/* Undertake metadata transfer while holding mmu_lock.
+	 *
+	 * Once the PTE has been updated to point to @new_phys, alloc-backed
+	 * references to the page must also be updated even if the page became
+	 * NOT_MOVABLE while migration was in flight. NOT_MOVABLE blocks future
+	 * migration attempts, but it does not invalidate the alloc-backed
+	 * metadata for the page.
+	 */
 	page_status = PAGE_STATUS_GET(page_md->status);
-	if (page_status == ALLOCATED_MAPPED) {
+	if (page_status == ALLOCATED_MAPPED || page_status == NOT_MOVABLE) {
 		/* Replace page in array of pages of the physical allocation. */
 		size_t page_array_index = (page_md->data.mapped.vpfn / GPU_PAGES_PER_CPU_PAGE) -
 					  page_md->data.mapped.reg->start_pfn;
+		struct tagged_addr *page_array = page_md->data.mapped.reg->gpu_alloc->pages;
 
-		page_md->data.mapped.reg->gpu_alloc->pages[page_array_index] = new_phys;
-	} else if (page_status == NOT_MOVABLE) {
-		dev_dbg(kbdev->dev, "%s: migration completed and page has become NOT_MOVABLE.",
-			__func__);
+		if (WARN_ON_ONCE(as_phys_addr_t(page_array[page_array_index]) !=
+				 as_phys_addr_t(old_phys)))
+			dev_warn(kbdev->dev,
+				 "%s: page array entry changed during migration completion (status %u)",
+				 __func__, page_status);
+
+		page_array[page_array_index] = new_phys;
+
+		if (page_status == NOT_MOVABLE)
+			dev_dbg(kbdev->dev, "%s: migration completed after page became NOT_MOVABLE.",
+				__func__);
 	} else {
 		dev_WARN(kbdev->dev, "%s: migration completed but page has moved to status %d.",
 			 __func__, page_status);
@@ -4574,7 +4603,7 @@ static void kbase_mmu_mark_non_movable(struct kbase_device *const kbdev, struct 
 	if (IS_PAGE_MOVABLE(page_md->status))
 		page_md->status = PAGE_MOVABLE_CLEAR(page_md->status);
 
-	__ClearPageMovable(page);
+	kbase_clear_page_movable(page);
 	spin_unlock(&page_md->migrate_lock);
 	unlock_page(page);
 }

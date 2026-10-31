@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2010-2024 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2026 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -1477,7 +1477,11 @@ void kbase_jd_zap_context(struct kbase_context *kctx)
 	 * queued outside the job scheduler.
 	 */
 
+#if KERNEL_VERSION(6, 15, 0) <= LINUX_VERSION_CODE
+	timer_delete_sync(&kctx->soft_job_timeout);
+#else
 	del_timer_sync(&kctx->soft_job_timeout);
+#endif
 	list_for_each_safe(entry, tmp, &kctx->waiting_soft_jobs) {
 		katom = list_entry(entry, struct kbase_jd_atom, queue);
 		kbase_cancel_soft_job(katom);

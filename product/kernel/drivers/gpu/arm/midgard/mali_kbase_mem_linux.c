@@ -1320,6 +1320,8 @@ err_unmap_attachment:
 	return err;
 }
 
+KBASE_ALLOW_ERROR_INJECTION_TEST_API(kbase_mem_umm_map_attachment, ERRNO);
+
 int kbase_mem_umm_map(struct kbase_context *kctx, struct kbase_va_region *reg)
 {
 	int err;
@@ -1530,13 +1532,21 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx, in
 	if (IS_ERR_OR_NULL(reg->gpu_alloc))
 		goto no_alloc;
 
+	/* No pages to map yet */
+	reg->gpu_alloc->nents = 0;
+	reg->gpu_alloc->type = KBASE_MEM_TYPE_IMPORTED_UMM;
+	reg->gpu_alloc->imported.umm.sgt = NULL;
+	reg->gpu_alloc->imported.umm.dma_buf = dma_buf;
+	reg->gpu_alloc->imported.umm.dma_attachment = dma_attachment;
+	reg->gpu_alloc->imported.umm.current_mapping_usage_count = 0;
+	reg->gpu_alloc->imported.umm.need_sync = need_sync;
+	reg->gpu_alloc->imported.umm.kctx = kctx;
+	reg->extension = 0;
+
 	reg->cpu_alloc = kbase_mem_phy_alloc_get(reg->gpu_alloc);
 
 	if (kbase_update_region_flags(kctx, reg, *flags) != 0)
 		goto error_out;
-
-	/* No pages to map yet */
-	reg->gpu_alloc->nents = 0;
 
 	reg->flags &= ~KBASE_REG_FREE;
 	reg->flags |= KBASE_REG_GPU_NX; /* UMM is always No eXecute */
@@ -1548,19 +1558,8 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx, in
 	if (padding)
 		reg->flags |= KBASE_REG_IMPORT_PAD;
 
-	reg->gpu_alloc->type = KBASE_MEM_TYPE_IMPORTED_UMM;
-	reg->gpu_alloc->imported.umm.sgt = NULL;
-	reg->gpu_alloc->imported.umm.dma_buf = dma_buf;
-	reg->gpu_alloc->imported.umm.dma_attachment = dma_attachment;
-	reg->gpu_alloc->imported.umm.current_mapping_usage_count = 0;
-	reg->gpu_alloc->imported.umm.need_sync = need_sync;
-	reg->gpu_alloc->imported.umm.kctx = kctx;
-	reg->extension = 0;
-
 	if (!IS_ENABLED(CONFIG_MALI_DMA_BUF_MAP_ON_DEMAND)) {
 		int err;
-
-		reg->gpu_alloc->imported.umm.current_mapping_usage_count = 1;
 
 		err = kbase_mem_umm_map_attachment(kctx, reg);
 		if (err) {
@@ -1569,21 +1568,25 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx, in
 			goto error_out;
 		}
 
+		reg->gpu_alloc->imported.umm.current_mapping_usage_count = 1;
+
 		*flags |= KBASE_MEM_IMPORT_HAVE_PAGES;
 	}
 
 	return reg;
 
-error_out:
-	kbase_mem_phy_alloc_put(reg->gpu_alloc);
-	kbase_mem_phy_alloc_put(reg->cpu_alloc);
 no_alloc:
 	kfree(reg);
 
 dma_buf_exit:
 	dma_buf_detach(dma_buf, dma_attachment);
 	dma_buf_put(dma_buf);
+	return NULL;
 
+error_out:
+	kbase_mem_phy_alloc_put(reg->gpu_alloc);
+	kbase_mem_phy_alloc_put(reg->cpu_alloc);
+	kfree(reg);
 	return NULL;
 }
 
@@ -2984,22 +2987,24 @@ void kbase_sync_mem_regions(struct kbase_context *kctx, struct kbase_vmap_struct
  *
  * @pages:      Array of pages.
  * @page_count: Number of pages.
- * @flags:      Region flags.
+ * @counted_pages: Bitmap of pages whose vmap_count was incremented.
  *
  * This function is supposed to be called only if page migration support
  * is enabled in the driver.
  *
  * The counter of kernel CPU mappings of the physical pages involved in a
- * mapping operation is incremented by 1. Errors are handled by making pages
- * not movable. Permanent kernel mappings will be marked as not movable, too.
+ * mapping operation is incremented by 1.
+ *
+ * Return: 0 on success, otherwise a negative error code.
  */
-static void kbase_vmap_phy_pages_migrate_count_increment(struct tagged_addr *pages,
-							 size_t page_count, unsigned long flags)
+static int kbase_vmap_phy_pages_migrate_count_increment(struct tagged_addr *pages,
+							size_t page_count, u8 *counted_pages)
 {
 	size_t i;
+	int ret = 0;
 
 	if (!kbase_is_page_migration_enabled())
-		return;
+		return 0;
 
 	for (i = 0; i < page_count; i++) {
 		struct page *p = as_page(pages[i]);
@@ -3012,23 +3017,57 @@ static void kbase_vmap_phy_pages_migrate_count_increment(struct tagged_addr *pag
 			continue;
 
 		spin_lock(&page_md->migrate_lock);
-		/* Mark permanent kernel mappings as NOT_MOVABLE because they're likely
-		 * to stay mapped for a long time. However, keep on counting the number
-		 * of mappings even for them: they don't represent an exception for the
-		 * vmap_count.
-		 *
-		 * At the same time, errors need to be handled if a client tries to add
-		 * too many mappings, hence a page may end up in the NOT_MOVABLE state
-		 * anyway even if it's not a permanent kernel mapping.
+		/* Migration sets the isolate bit before it can rewrite the
+		 * region's page array. Do not create a kernel mapping from a
+		 * page that has already passed that point.
 		 */
-		if (flags & KBASE_REG_PERMANENT_KERNEL_MAPPING)
+		if (IS_PAGE_ISOLATED(page_md->status)) {
+			ret = -EAGAIN;
+			spin_unlock(&page_md->migrate_lock);
+			break;
+		}
+
+		/* Fail the mapping if a client tries to add too many mappings. Mark the
+		 * page NOT_MOVABLE before failing to prevent migration while the existing
+		 * mappings are still active.
+		 */
+		if (page_md->vmap_count == U8_MAX) {
 			page_md->status = PAGE_STATUS_SET(page_md->status, (u8)NOT_MOVABLE);
-		if (page_md->vmap_count < U8_MAX)
-			page_md->vmap_count++;
-		else
-			page_md->status = PAGE_STATUS_SET(page_md->status, (u8)NOT_MOVABLE);
+			ret = -EOVERFLOW;
+			spin_unlock(&page_md->migrate_lock);
+			break;
+		}
+
+		page_md->vmap_count++;
+		counted_pages[i] = true;
 		spin_unlock(&page_md->migrate_lock);
 	}
+
+	if (ret) {
+		/* Only pages counted by this attempt are rolled back. Those pages must
+		 * still have a non-zero count; otherwise the vmap accounting invariant has
+		 * been broken, so prevent migration from trusting it.
+		 */
+		while (i-- > 0) {
+			struct page *p;
+			struct kbase_page_metadata *page_md;
+
+			if (!counted_pages[i])
+				continue;
+
+			p = as_page(pages[i]);
+			page_md = kbase_page_private(p);
+
+			spin_lock(&page_md->migrate_lock);
+			if (WARN_ON_ONCE(page_md->vmap_count == 0))
+				page_md->status = PAGE_STATUS_SET(page_md->status, (u8)NOT_MOVABLE);
+			else
+				page_md->vmap_count--;
+			spin_unlock(&page_md->migrate_lock);
+		}
+	}
+
+	return ret;
 }
 
 /**
@@ -3077,6 +3116,82 @@ static void kbase_vunmap_phy_pages_migrate_count_decrement(struct tagged_addr *p
 	}
 }
 
+/**
+ * kbase_vmap_phy_pages_migrate_count_rollback - Roll back vmap counts for a failed vmap
+ *                                               attempt
+ *
+ * @pages:         Array of pages.
+ * @counted_pages: Bitmap of pages whose vmap_count was incremented for this attempt.
+ * @page_count:    Number of pages.
+ *
+ * Roll back only the pages successfully counted for this vmap attempt. Those pages must
+ * still have a non-zero count, so reaching zero here indicates broken vmap accounting. If
+ * that invariant is violated, make the page NOT_MOVABLE rather than allowing migration with
+ * unknown CPU mapping state.
+ */
+static void kbase_vmap_phy_pages_migrate_count_rollback(struct tagged_addr *pages,
+							const u8 *counted_pages,
+							size_t page_count)
+{
+	size_t i;
+
+	if (!kbase_is_page_migration_enabled())
+		return;
+
+	for (i = 0; i < page_count; i++) {
+		struct page *p;
+		struct kbase_page_metadata *page_md;
+
+		if (!counted_pages[i])
+			continue;
+
+		p = as_page(pages[i]);
+		page_md = kbase_page_private(p);
+
+		spin_lock(&page_md->migrate_lock);
+		if (WARN_ON_ONCE(page_md->vmap_count == 0))
+			page_md->status = PAGE_STATUS_SET(page_md->status, (u8)NOT_MOVABLE);
+		else
+			page_md->vmap_count--;
+		spin_unlock(&page_md->migrate_lock);
+	}
+}
+
+/**
+ * kbase_vmap_phy_pages_mark_permanent_not_movable - Mark permanently vmapped pages as
+ *                                                   not movable
+ *
+ * @pages:      Array of pages.
+ * @page_count: Number of pages.
+ *
+ * Permanently mapped pages can remain CPU mapped for a long time, so mark them NOT_MOVABLE
+ * after vmap() succeeds. Deferring this until after vmap() avoids leaving pages permanently
+ * non-movable when a permanent mapping attempt fails.
+ */
+static void kbase_vmap_phy_pages_mark_permanent_not_movable(struct tagged_addr *pages,
+							    size_t page_count)
+{
+	size_t i;
+
+	if (!kbase_is_page_migration_enabled())
+		return;
+
+	for (i = 0; i < page_count; i++) {
+		struct page *p = as_page(pages[i]);
+		struct kbase_page_metadata *page_md = kbase_page_private(p);
+
+		/* Skip the small page that is part of a large page, as the large page is
+		 * excluded from the migration process.
+		 */
+		if (is_huge(pages[i]) || is_partial(pages[i]))
+			continue;
+
+		spin_lock(&page_md->migrate_lock);
+		page_md->status = PAGE_STATUS_SET(page_md->status, (u8)NOT_MOVABLE);
+		spin_unlock(&page_md->migrate_lock);
+	}
+}
+
 static int kbase_vmap_phy_pages(struct kbase_context *kctx, struct kbase_va_region *reg,
 				u64 offset_bytes, size_t size, struct kbase_vmap_struct *map,
 				kbase_vmap_flag vmap_flags)
@@ -3086,9 +3201,12 @@ static int kbase_vmap_phy_pages(struct kbase_context *kctx, struct kbase_va_regi
 	size_t page_count = PFN_UP(offset_in_page + size);
 	struct tagged_addr *page_array;
 	struct page **pages;
+	u8 *migration_counted_pages = NULL;
 	void *cpu_addr = NULL;
 	pgprot_t prot;
 	size_t i;
+	bool track_vmap_count;
+	int err;
 
 	if (WARN_ON(vmap_flags & ~KBASE_VMAP_INPUT_FLAGS))
 		return -EINVAL;
@@ -3098,6 +3216,9 @@ static int kbase_vmap_phy_pages(struct kbase_context *kctx, struct kbase_va_regi
 
 	if (!size || !map || !reg->cpu_alloc || !reg->gpu_alloc)
 		return -EINVAL;
+
+	track_vmap_count =
+		kbase_is_page_migration_enabled() && !kbase_mem_is_imported(reg->gpu_alloc->type);
 
 	/* check if page_count calculation will wrap */
 	if (size > ((size_t)-1 / PAGE_SIZE))
@@ -3140,8 +3261,40 @@ static int kbase_vmap_phy_pages(struct kbase_context *kctx, struct kbase_va_regi
 	if (!pages)
 		return -ENOMEM;
 
+	/* If page migration is enabled, increment the number of kernel mappings of
+	 * all physical pages before taking the page-array snapshot used by vmap().
+	 *
+	 * kbase_mmu_migrate_data_page() holds mmu_lock from its vmap_count check
+	 * until it rewrites reg->gpu_alloc->pages[]. Taking the same lock here
+	 * means the snapshot below cannot race with that rewrite. Either migration
+	 * sees vmap_count > 0 and backs out, or this path sees the page is already
+	 * isolated and refuses to create a stale kernel mapping.
+	 *
+	 * The lock is released before vmap(), after the local struct page array is
+	 * stable and the pages are accounted.
+	 */
+	if (track_vmap_count) {
+		migration_counted_pages =
+			kcalloc(page_count, sizeof(*migration_counted_pages), GFP_KERNEL);
+		if (!migration_counted_pages) {
+			err = -ENOMEM;
+			goto out_free_pages;
+		}
+
+		mutex_lock(&kctx->mmu.mmu_lock);
+		err = kbase_vmap_phy_pages_migrate_count_increment(
+			&page_array[page_index], page_count, migration_counted_pages);
+		if (err) {
+			mutex_unlock(&kctx->mmu.mmu_lock);
+			goto out_free_counted_pages;
+		}
+	}
+
 	for (i = 0; i < page_count; i++)
 		pages[i] = as_page(page_array[page_index + i]);
+
+	if (track_vmap_count)
+		mutex_unlock(&kctx->mmu.mmu_lock);
 
 	/* Note: enforcing a RO prot_request onto prot is not done, since:
 	 * - CPU-arch-specific integration required
@@ -3149,17 +3302,17 @@ static int kbase_vmap_phy_pages(struct kbase_context *kctx, struct kbase_va_regi
 	 */
 	cpu_addr = vmap(pages, page_count, VM_MAP, prot);
 
-	/* If page migration is enabled, increment the number of VMA mappings
-	 * of all physical pages. In case of errors, e.g. too many mappings,
-	 * make the page not movable to prevent trouble.
-	 */
-	if (kbase_is_page_migration_enabled() && !kbase_mem_is_imported(reg->gpu_alloc->type))
-		kbase_vmap_phy_pages_migrate_count_increment(page_array, page_count, reg->flags);
-
 	kfree(pages);
 
-	if (!cpu_addr)
+	if (!cpu_addr) {
+		if (track_vmap_count)
+			kbase_vmap_phy_pages_migrate_count_rollback(&page_array[page_index],
+								    migration_counted_pages,
+								    page_count);
+		kfree(migration_counted_pages);
 		return -ENOMEM;
+	}
+	kfree(migration_counted_pages);
 
 	map->offset_in_page = offset_in_page;
 	map->cpu_alloc = reg->cpu_alloc;
@@ -3175,12 +3328,22 @@ static int kbase_vmap_phy_pages(struct kbase_context *kctx, struct kbase_va_regi
 	if (map->flags & KBASE_VMAP_FLAG_SYNC_NEEDED)
 		kbase_sync_mem_regions(kctx, map, KBASE_SYNC_TO_CPU);
 
+	if (track_vmap_count && (reg->flags & KBASE_REG_PERMANENT_KERNEL_MAPPING))
+		kbase_vmap_phy_pages_mark_permanent_not_movable(&page_array[page_index],
+								page_count);
+
 	if (vmap_flags & KBASE_VMAP_FLAG_PERMANENT_MAP_ACCOUNTING)
 		atomic_add(page_count, &kctx->permanent_mapped_pages);
 
 	kbase_mem_phy_alloc_kernel_mapped(reg->cpu_alloc);
 
 	return 0;
+
+out_free_counted_pages:
+	kfree(migration_counted_pages);
+out_free_pages:
+	kfree(pages);
+	return err;
 }
 
 void *kbase_vmap_reg(struct kbase_context *kctx, struct kbase_va_region *reg, u64 gpu_addr,
@@ -3218,6 +3381,8 @@ fail_vmap_phy_pages:
 	kbase_mem_phy_alloc_put(gpu_alloc);
 	return NULL;
 }
+
+KBASE_EXPORT_TEST_API(kbase_vmap_reg);
 
 void *kbase_vmap_prot(struct kbase_context *kctx, u64 gpu_addr, size_t size,
 		      unsigned long prot_request, struct kbase_vmap_struct *map)

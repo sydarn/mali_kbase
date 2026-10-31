@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2011-2024 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2026 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -285,7 +285,12 @@ void kbasep_complete_triggered_soft_events(struct kbase_context *kctx, u64 evt)
 	}
 
 	if (cancel_timer)
+#if KERNEL_VERSION(6, 15, 0) <= LINUX_VERSION_CODE
+		timer_delete(&kctx->soft_job_timeout);
+#else
 		del_timer(&kctx->soft_job_timeout);
+#endif
+
 	spin_unlock_irqrestore(&kctx->waiting_soft_jobs_lock, lflags);
 }
 

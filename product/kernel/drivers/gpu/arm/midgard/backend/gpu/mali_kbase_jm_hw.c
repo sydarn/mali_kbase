@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2010-2024 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2026 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -1261,8 +1261,13 @@ int kbase_reset_gpu_init(struct kbase_device *kbdev)
 
 	INIT_WORK(&kbdev->hwaccess.backend.reset_work, kbasep_reset_timeout_worker);
 
+#if KERNEL_VERSION(6, 15, 0) <= LINUX_VERSION_CODE
+	hrtimer_setup(&kbdev->hwaccess.backend.reset_timer, kbasep_reset_timer_callback,
+		      CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+#else
 	hrtimer_init(&kbdev->hwaccess.backend.reset_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	kbdev->hwaccess.backend.reset_timer.function = kbasep_reset_timer_callback;
+#endif
 
 	return 0;
 }

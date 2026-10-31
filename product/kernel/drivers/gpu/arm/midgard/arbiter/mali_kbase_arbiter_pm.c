@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2026 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -289,8 +289,13 @@ int kbase_arbiter_pm_early_init(struct kbase_device *kbdev)
 	INIT_WORK(&arb_vm_state->vm_resume_work, kbase_arbiter_pm_resume_wq);
 	arb_vm_state->vm_arb_starting = false;
 	atomic_set(&kbdev->pm.gpu_users_waiting, 0);
+#if KERNEL_VERSION(6, 15, 0) <= LINUX_VERSION_CODE
+	hrtimer_setup(&arb_vm_state->vm_request_timer, request_timer_callback, CLOCK_MONOTONIC,
+		      HRTIMER_MODE_REL);
+#else
 	hrtimer_init(&arb_vm_state->vm_request_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	arb_vm_state->vm_request_timer.function = request_timer_callback;
+#endif
 	kbdev->pm.arb_vm_state = arb_vm_state;
 
 	err = kbase_arbif_init(kbdev);

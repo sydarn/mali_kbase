@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2010-2024 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2026 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -456,7 +456,7 @@ int kbase_gpu_mmap(struct kbase_context *kctx, struct kbase_va_region *reg, u64 
 			(reg->flags | KBASE_REG_GPU_RD) & ~KBASE_REG_GPU_WR, KBASE_MEM_GROUP_SINK,
 			mmu_sync_info);
 		if (err)
-			goto bad_insert;
+			goto bad_padding;
 	}
 
 	return err;
@@ -474,6 +474,11 @@ bad_aliased_insert:
 					 phys_alloc, alloc->imported.alias.aliased[i].length,
 					 alloc->imported.alias.aliased[i].length, kctx->as_nr);
 	}
+bad_padding:
+	if (reg->gpu_alloc->type == KBASE_MEM_TYPE_IMPORTED_UMM)
+		kbase_mmu_teardown_imported_pages(kctx->kbdev, &kctx->mmu, reg->start_pfn,
+						  alloc->pages, alloc->nents, alloc->nents,
+						  kctx->as_nr);
 bad_insert:
 	kbase_remove_va_region(kctx->kbdev, reg);
 
@@ -871,6 +876,9 @@ static int kbase_do_syncset(struct kbase_context *kctx, struct basep_syncset *ss
 	if (!(reg->flags & KBASE_REG_CPU_CACHED))
 		goto out_unlock;
 
+	if (reg->flags & KBASE_REG_DONT_NEED)
+		goto out_unlock;
+
 	start = (uintptr_t)sset->user_addr;
 	size = (size_t)sset->size;
 
@@ -1197,6 +1205,8 @@ int kbase_update_region_flags(struct kbase_context *kctx, struct kbase_va_region
 
 	return 0;
 }
+
+KBASE_ALLOW_ERROR_INJECTION_TEST_API(kbase_update_region_flags, ERRNO);
 
 static int mem_account_inc(struct kbase_context *kctx, int nr_pages_inc)
 {
@@ -1924,7 +1934,7 @@ void kbase_mem_kref_free(struct kref *kref)
 		/* raw pages, external cleanup */
 		break;
 	case KBASE_MEM_TYPE_IMPORTED_UMM:
-		if (!IS_ENABLED(CONFIG_MALI_DMA_BUF_MAP_ON_DEMAND)) {
+		if (!IS_ENABLED(CONFIG_MALI_DMA_BUF_MAP_ON_DEMAND) && alloc->imported.umm.sgt) {
 			WARN_ONCE(alloc->imported.umm.current_mapping_usage_count != 1,
 				  "WARNING: expected exactly 1 mapping, got %d",
 				  alloc->imported.umm.current_mapping_usage_count);
@@ -1938,8 +1948,11 @@ void kbase_mem_kref_free(struct kref *kref)
 #endif
 			kbase_remove_dma_buf_usage(alloc->imported.umm.kctx, alloc);
 		}
-		dma_buf_detach(alloc->imported.umm.dma_buf, alloc->imported.umm.dma_attachment);
-		dma_buf_put(alloc->imported.umm.dma_buf);
+		if (alloc->imported.umm.dma_buf && alloc->imported.umm.dma_attachment) {
+			dma_buf_detach(alloc->imported.umm.dma_buf,
+				       alloc->imported.umm.dma_attachment);
+			dma_buf_put(alloc->imported.umm.dma_buf);
+		}
 		break;
 	case KBASE_MEM_TYPE_IMPORTED_USER_BUF:
 		switch (alloc->imported.user_buf.state) {

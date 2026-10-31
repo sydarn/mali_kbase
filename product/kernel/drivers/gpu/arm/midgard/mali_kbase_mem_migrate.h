@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2022-2025 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2022-2026 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -24,6 +24,7 @@
 #include <linux/version_compat_defs.h>
 
 #include <linux/types.h>
+#include <linux/migrate.h>
 
 struct kbase_device;
 struct file;
@@ -49,6 +50,32 @@ struct page;
 #define PAGE_MOVABLE_SET(status) (status | PAGE_MOVABLE_MASK)
 
 #define IS_PAGE_MOVABLE(status) ((bool)(status & PAGE_MOVABLE_MASK))
+
+#if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
+extern const struct movable_operations movable_ops;
+#endif
+
+/**
+ * kbase_clear_page_movable - Clear the "movable" property from the page
+ * @p: Page to clear the "movable" property from.
+ *
+ * This function is supposed to be called just before releasing
+ * the page and will take care of removing the "movable" property
+ * from the page, if necessary.
+ */
+void kbase_clear_page_movable(struct page *p);
+
+#if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
+/**
+ * kbase_set_page_movable - Set the "movable" property for the page
+ * @p:   Page to set the "movable" property for.
+ * @ops: Movable operations to be set for the page.
+ *
+ * This function will set the "movable" property for the page and,
+ * if necessary, it will also set and initialize the movable operations.
+ */
+void kbase_set_page_movable(struct page *p, const struct movable_operations *ops);
+#endif
 
 /**
  * kbase_alloc_page_metadata - Allocate and initialize page metadata
@@ -115,7 +142,6 @@ void kbase_mem_migrate_init(struct kbase_device *kbdev);
  */
 void kbase_mem_migrate_term(struct kbase_device *kbdev);
 
-#if MALI_UNIT_TEST
 /*
  * kbase_migrate_page_allocated_mapped - Expose private function to migrate
  *                                       allocated mapped page for testing purposes.
@@ -126,6 +152,5 @@ void kbase_mem_migrate_term(struct kbase_device *kbdev);
  * Return: 0 if successful, otherwise error code.
  */
 int kbase_migrate_page_allocated_mapped(struct page *old_page, struct page *new_page);
-#endif
 
-#endif /* _KBASE_migrate_H */
+#endif /* _KBASE_MEM_MIGRATE_H */

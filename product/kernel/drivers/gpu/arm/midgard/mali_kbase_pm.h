@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2010-2024 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2026 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -39,6 +39,9 @@ struct kbase_device;
  * Case 2: GPU already in reset state after power on, then no soft-reset is needed.
  */
 #define PM_NO_RESET 0x04
+
+/* Special flag for TBAX-1260 */
+#define PM_TBAX_HW_ISSUE_WA 0x8
 
 /**
  * kbase_pm_init - Initialize the power management framework.
